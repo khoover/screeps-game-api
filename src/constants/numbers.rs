@@ -5,13 +5,15 @@ use super::types::{ResourceType, StructureType};
 
 // FIND_* defined in `find.rs`
 
-// directions and colors defined in `small_enums.rs`
+// directions and COLOR_* defined in `small_enums.rs`
 
 // LOOK_* defined in `look.rs`
 
 // OBSTACLE_OBJECT_TYPES not yet implemented
 
-// body parts and their costs defined in `small_enums.rs`
+// BODYPART_COST defined in `small_enums.rs`
+
+// WORLD_WIDTH/HEIGHT deprecated, not implemented
 
 /// Initial ticks_to_live of a creep without any claim parts.
 pub const CREEP_LIFE_TIME: u32 = 1500;
@@ -113,7 +115,7 @@ pub const RAMPART_HITS_MAX_RCL8: u32 = 300_000_000;
 /// Translates the `RAMPART_HITS_MAX` constant, the maximum rampart hits for a
 /// given room control level.
 #[inline]
-pub fn rampart_hits_max(rcl: u32) -> u32 {
+pub const fn rampart_hits_max(rcl: u32) -> u32 {
     match rcl {
         r if r < 2 => 0,
         2 => RAMPART_HITS_MAX_RCL2,
@@ -122,7 +124,7 @@ pub fn rampart_hits_max(rcl: u32) -> u32 {
         5 => RAMPART_HITS_MAX_RCL5,
         6 => RAMPART_HITS_MAX_RCL6,
         7 => RAMPART_HITS_MAX_RCL7,
-        8 | _ => RAMPART_HITS_MAX_RCL8,
+        _ => RAMPART_HITS_MAX_RCL8,
     }
 }
 
@@ -131,7 +133,9 @@ pub fn rampart_hits_max(rcl: u32) -> u32 {
 /// [`Creep::harvest`]: crate::objects::Creep::harvest
 pub const ENERGY_REGEN_TIME: u32 = 300;
 /// The total amount of a resource that must be accumulated in a dropped
-/// resource for one unit of that resource to decay each tick, rounded up.
+/// [`Resource`] for one unit of that resource to decay each tick, rounded up.
+///
+/// [`Resource`]: crate::objects::Resource
 pub const ENERGY_DECAY: u32 = 1000;
 
 /// Initial hits for spawn structures; consider using the
@@ -188,11 +192,11 @@ pub const EXTENSION_HITS: u32 = 1000;
 /// Translates the `EXTENSION_ENERGY_CAPACITY` constant, the energy capacity of
 /// each source structure at a given room control level.
 #[inline]
-pub fn extension_energy_capacity(rcl: u32) -> u32 {
+pub const fn extension_energy_capacity(rcl: u32) -> u32 {
     match rcl {
         r if r < 7 => 50,
         7 => 100,
-        8 | _ => 200,
+        _ => 200,
     }
 }
 
@@ -255,7 +259,7 @@ pub const CONSTRUCTION_COST_ROAD_WALL_RATIO: u32 = 150;
 ///
 /// Returns `Some` for levels 1-7, `None` for all others.
 #[inline]
-pub fn controller_levels(current_rcl: u32) -> Option<u32> {
+pub const fn controller_levels(current_rcl: u32) -> Option<u32> {
     match current_rcl {
         1 => Some(200),
         2 => Some(45_000),
@@ -282,7 +286,7 @@ pub fn controller_levels(current_rcl: u32) -> Option<u32> {
 /// [`StructureController::ticks_to_downgrade`]:
 /// crate::objects::StructureController::ticks_to_downgrade
 #[inline]
-pub fn controller_downgrade(rcl: u32) -> Option<u32> {
+pub const fn controller_downgrade(rcl: u8) -> Option<u32> {
     match rcl {
         1 => Some(20_000),
         2 => Some(10_000),
@@ -366,9 +370,10 @@ pub const CONTROLLER_NUKE_BLOCKED_UPGRADE: u32 = 200;
 pub const SAFE_MODE_DURATION: u32 = 20_000;
 /// Ticks since last safe mode activation before another is allowed.
 pub const SAFE_MODE_COOLDOWN: u32 = 50_000;
-/// Cost in Ghodium to add a safe mode activation to a controller via
+/// Cost in [`Ghodium`] to add a safe mode activation to a controller via
 /// [`Creep::generate_safe_mode`]
 ///
+/// [`Ghodium`]: crate::constants::ResourceType::Ghodium
 /// [`Creep::generate_safe_mode`]: crate::objects::Creep::generate_safe_mode
 pub const SAFE_MODE_COST: u32 = 1000;
 
@@ -482,43 +487,38 @@ pub const LAB_ENERGY_CAPACITY: u32 = 2000;
 pub const LAB_BOOST_ENERGY: u32 = 20;
 /// Cost in boost minerals to boost each creep body part.
 pub const LAB_BOOST_MINERAL: u32 = 30;
+// LAB_COOLDOWN is marked as unused, not implemented
 /// Amount of compounds consumed and produced per reaction, before power creep
 /// effects.
 pub const LAB_REACTION_AMOUNT: u32 = 5;
-// LAB_COOLDOWN is marked as unused, not implemented
-/// Energy refunded by unboost per creep body part (none)
+/// Energy refunded by [`StructureLab::unboost_creep`] per creep body part
+/// (none).
+///
+/// [`StructureLab::unboost_creep`]: crate::objects::StructureLab::unboost_creep
 pub const LAB_UNBOOST_ENERGY: u32 = 0;
-/// Minerals spent on boosts refunded by unboost per creep body part.
+/// Minerals spent on boosts refunded by [`StructureLab::unboost_creep`] per
+/// creep body part.
+///
+/// [`StructureLab::unboost_creep`]: crate::objects::StructureLab::unboost_creep
 pub const LAB_UNBOOST_MINERAL: u32 = 15;
 
 /// Exponential growth rate of control points needed per global control level
 /// (GCL).
 ///
-/// Use the [`game::gcl::total_for_level`] function to calculate for each level
+/// See [`control_points_for_gcl`] function to calculate for each level
 ///
-/// [`game::gcl::total_for_level`]: crate::game::gcl::total_for_level
+/// [`control_points_for_gcl`]: crate::constants::math::control_points_for_gcl
 pub const GCL_POW: f64 = 2.4;
 /// Base growth rate of control points needed per global control level (GCL).
 ///
-/// Use the [`game::gcl::total_for_level`] function to calculate for each level
+/// See [`control_points_for_gcl`] function to calculate for each level
 ///
-/// [`game::gcl::total_for_level`]: crate::game::gcl::total_for_level
+/// [`control_points_for_gcl`]: crate::constants::math::control_points_for_gcl
 pub const GCL_MULTIPLY: u32 = 1_000_000;
 /// Maximum GCL for players allowed to spawn in a Novice area.
 pub const GCL_NOVICE: u32 = 3;
 
-/// Terrain bitmask value representing natural walls; represented by
-/// [`Terrain::Wall`] when using terrain functions.
-///
-/// [`Terrain::Wall`]: crate::constants::Terrain::Wall
-pub const TERRAIN_MASK_WALL: u8 = 1;
-/// Terrain bitmask value representing swamps; represented by [`Terrain::Swamp`]
-/// when using terrain functions.
-///
-/// [`Terrain::Swamp`]: crate::constants::Terrain::Swamp
-pub const TERRAIN_MASK_SWAMP: u8 = 2;
-/// Lava terrain, not implemented in game.
-pub const TERRAIN_MASK_LAVA: u8 = 4;
+// TERRAIN_* defined in `small_enums.rs`
 
 /// Maximum allowed construction sites at once per player.
 pub const MAX_CONSTRUCTION_SITES: u32 = 100;
@@ -531,9 +531,9 @@ pub const MINERAL_REGEN_TIME: u32 = 50_000;
 /// Translates the `MINERAL_MIN_AMOUNT` constant; currently unused in game (see
 /// [`Density::amount`] instead).
 ///
-/// [`Density::amount`]: crate::constants::minerals::Density::amount
+/// [`Density::amount`]: crate::constants::Density::amount
 #[inline]
-pub fn mineral_min_amount(mineral: ResourceType) -> Option<u32> {
+pub const fn mineral_min_amount(mineral: ResourceType) -> Option<u32> {
     match mineral {
         ResourceType::Hydrogen => Some(35_000),
         ResourceType::Oxygen => Some(35_000),
@@ -548,7 +548,7 @@ pub fn mineral_min_amount(mineral: ResourceType) -> Option<u32> {
 
 /// Currently unused in game (see [`Density::probability`] instead).
 ///
-/// [`Density::probability`]: crate::constants::minerals::Density::probability
+/// [`Density::probability`]: crate::constants::Density::probability
 pub const MINERAL_RANDOM_FACTOR: u32 = 2;
 
 // MINERAL_DENSITY, MINERAL_DENSITY_PROBABILITY defined in `small_enums.rs`
@@ -588,9 +588,12 @@ pub const DEPOSIT_DECAY_TIME: u32 = 50_000;
 pub const TERMINAL_HITS: u32 = 3000;
 /// Store capacity of terminal structures.
 pub const TERMINAL_CAPACITY: u32 = 300_000;
-/// Currently unused in game (see [`market::calc_transaction_cost`] instead).
+/// Currently unused in game (see [`market::calc_transaction_cost`] and
+/// [`TERMINAL_SEND_COST_SCALE`] instead).
 ///
 /// [`market::calc_transaction_cost`]: [`crate::market::calc_transaction_cost`].
+/// [`TERMINAL_SEND_COST_SCALE`]:
+/// [`crate::constants::TERMINAL_SEND_COST_SCALE`].
 pub const TERMINAL_SEND_COST: f32 = 0.1;
 /// Currently unused in game.
 pub const TERMINAL_MIN_SEND: u32 = 100;
@@ -645,7 +648,7 @@ pub const RUIN_DECAY: u32 = 500;
 /// Structures with special rules for their ruins' ticks to live, currently only
 /// power banks.
 #[inline]
-pub fn ruin_decay_structures(structure_type: StructureType) -> Option<u32> {
+pub const fn ruin_decay_structures(structure_type: StructureType) -> Option<u32> {
     match structure_type {
         StructureType::PowerBank => Some(10),
         _ => None,
@@ -656,7 +659,7 @@ pub fn ruin_decay_structures(structure_type: StructureType) -> Option<u32> {
 /// remain before decaying.
 pub const PORTAL_DECAY: u32 = 30_000;
 
-// ORDER_SELL / ORDER_BUY defined in `src/game.rs`
+// ORDER_SELL / ORDER_BUY defined in `small_enums.rs`
 
 /// Percentage of order value in credits charged as a fee for market listings.
 pub const MARKET_FEE: f32 = 0.05;
@@ -669,11 +672,11 @@ pub const MARKET_ORDER_LIFE_TIME: u32 = 30 * 24 * 3600 * 1000;
 /// Maximum number of total flags a player is allowed to have on a shard.
 pub const FLAGS_LIMIT: u32 = 10_000;
 
-/// Cost, paid from [`game::cpu::bucket`], to generate a pixel using
-/// [`game::cpu::generate_pixel`]
+/// Cost, paid from [`CpuInfo::bucket`], to generate a pixel using
+/// [`CpuInfo::generate_pixel`]
 ///
-/// [`game::cpu::bucket`]: crate::game::cpu::bucket
-/// [`game::cpu::generate_pixel`]: crate::game::cpu::generate_pixel
+/// [`CpuInfo::bucket`]: crate::game::cpu::bucket
+/// [`CpuInfo::generate_pixel`]: crate::game::cpu::generate_pixel
 pub const PIXEL_CPU_COST: u32 = 10_000;
 
 // Resources defined in `types.rs`
@@ -684,11 +687,15 @@ pub const PIXEL_CPU_COST: u32 = 10_000;
 
 // REACTION_TIME defined in `recipes.rs`
 
-/// Seems to be currently unused
+/// The amount of time after spawning, in milliseconds, that random center room
+/// portals will become unstable and begin to decay, disappearing
+/// [`PORTAL_DECAY`] ticks later.
 pub const PORTAL_UNSTABLE: u32 = 10 * 24 * 3600 * 1000;
-/// Minimum lifetime, in milliseconds, of random center room portals
+/// Minimum time after a portal decays in a center room that a new portal will
+/// appear, in milliseconds.
 pub const PORTAL_MIN_TIMEOUT: u32 = 12 * 24 * 3600 * 1000;
-/// Maximum lifetime, in milliseconds, of random center room portals
+/// Maximum time after a portal decays in a center room that a new portal will
+/// appear, in milliseconds.
 pub const PORTAL_MAX_TIMEOUT: u32 = 22 * 24 * 3600 * 1000;
 
 /// Base value for power bank respawn time calculation.
@@ -734,26 +741,23 @@ pub const SIGN_PLANNED_AREA: &str = "A new Novice or Respawn Area is being plann
 
 /// Base growth rate of processed power needed per global power level (GPL).
 ///
-/// Use the [`game::gpl::total_for_level`] function to calculate for each level
+/// See [`power_for_gpl`] function to calculate for each level
 ///
-/// [`game::gpl::total_for_level`]: crate::game::gpl::total_for_level
+/// [`power_for_gpl`]: crate::constants::math::power_for_gpl
 pub const POWER_LEVEL_MULTIPLY: u32 = 1000;
 /// Exponential growth rate of processed power needed per global power level
 /// (GPL).
 ///
-/// Use the [`game::gpl::total_for_level`] function to calculate for each level
+/// See [`power_for_gpl`] function to calculate for each level
 ///
-/// [`game::gpl::total_for_level`]: crate::game::gpl::total_for_level
+/// [`power_for_gpl`]: crate::constants::math::power_for_gpl
 pub const POWER_LEVEL_POW: u32 = 2;
 /// Time, in milliseconds, that a power creep must wait to respawn after dying.
 pub const POWER_CREEP_SPAWN_COOLDOWN: u32 = 8 * 3600 * 1000;
 /// Time, in milliseconds, after a deletion is started via
-/// [`AccountPowerCreep::delete`] that it can no longer be canceled via
-/// [`AccountPowerCreep::cancel_delete`].
+/// [`AccountPowerCreep::delete`] that it can no longer be canceled.
 ///
 /// [`AccountPowerCreep::delete`]: crate::objects::AccountPowerCreep::delete
-/// [`AccountPowerCreep::cancel_delete`]:
-/// crate::objects::AccountPowerCreep::cancel_delete
 pub const POWER_CREEP_DELETE_COOLDOWN: u32 = 24 * 3600 * 1000;
 /// Maximum level for power creeps.
 pub const POWER_CREEP_MAX_LEVEL: u32 = 25;
@@ -766,10 +770,24 @@ pub const POWER_CREEP_LIFE_TIME: u32 = 5000;
 /// [`StructureType::initial_hits`] function.
 pub const INVADER_CORE_HITS: u32 = 100_000;
 
+/// Ticks per body part that invader cores of each level take to spawn defensive
+/// creeps.
+#[inline]
+pub const fn invader_core_creep_spawn_time(core_level: u32) -> Option<u32> {
+    match core_level {
+        1 => Some(0),
+        2 => Some(6),
+        3 => Some(3),
+        4 => Some(2),
+        5 => Some(1),
+        _ => None,
+    }
+}
+
 /// Ticks between creation of invader cores in rooms in the sector for each
 /// level of stronghold.
 #[inline]
-pub fn invader_core_expand_time(core_level: u32) -> Option<u32> {
+pub const fn invader_core_expand_time(core_level: u32) -> Option<u32> {
     match core_level {
         1 => Some(4000),
         2 => Some(3500),
@@ -788,23 +806,9 @@ pub const INVADER_CORE_CONTROLLER_POWER: u32 = 2;
 /// in owned rooms, which has been removed.  Now only used for the deploy timer.
 pub const INVADER_CORE_CONTROLLER_DOWNGRADE: u32 = 5000;
 
-/// Ticks per body part that invader cores of each level take to spawn defensive
-/// creeps.
-#[inline]
-pub fn invader_core_creep_spawn_time(core_level: u32) -> Option<u32> {
-    match core_level {
-        1 => Some(0),
-        2 => Some(6),
-        3 => Some(3),
-        4 => Some(2),
-        5 => Some(1),
-        _ => None,
-    }
-}
-
 /// Rampart hits for each level of stronghold.
 #[inline]
-pub fn stronghold_rampart_hits(core_level: u32) -> Option<u32> {
+pub const fn stronghold_rampart_hits(core_level: u32) -> Option<u32> {
     match core_level {
         1 => Some(100_000),
         2 => Some(200_000),
@@ -828,6 +832,8 @@ pub fn stronghold_rampart_hits(core_level: u32) -> Option<u32> {
 pub const STRONGHOLD_DECAY_TICKS: u32 = 75_000;
 
 // POWER_INFO not yet implemented
-// BODYPARTS_ALL, RESOURCES_ALL, COLORS_ALL not yet implemented
+// BODYPARTS_ALL implemented via Sequence trait in `small_enums.rs`
+// RESOURCES_ALL implemented via Sequence trait in `types.rs`
+// COLORS_ALL implemented via Sequence trait in `small_enums.rs`
 // INTERSHARD_RESOURCES defined in `types.rs`
 // COMMODITIES defined in `recipes.rs`

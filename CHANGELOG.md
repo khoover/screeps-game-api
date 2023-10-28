@@ -1,8 +1,228 @@
 Unreleased
 ==========
 
+0.16.1 (2023-10-11)
+===================
+
+### Additions:
+
+- Add new geometry helper functions to `Direction`: `is_diagonal`, `is_orthogonal`, `multi_rot`,
+  `rot_cw`, and `rot_ccw`
+- Add `checked_add` and `saturating_add` functions to `RoomCoordinate` and `RoomXY`, as well as
+  `checked_add_direction` and `saturating_add_direction` to `RoomXY`
+
+### Bugfixes:
+
+- Fix incorrect setter name on `visualize_path_style` causing the setting to not work
+- `OwnedStructure`, `OwnedStructureObject`, and `OwnedStructureProperties`'s `my` method now
+  correctly handles the value being undefined.
+  - This fixes a panic on checking `my` for unowned controllers. (again)
+
+0.16.0 (2023-09-14)
+===================
+
+### Breaking:
+
+- Use constant values compatible with the game for serializing `PowerCreepClass`, and
+  `IntershardResourceType`, and `Part` as string - note that if you've stored any of these values,
+  they will fail to parse after updating!
+- Removed `FromStr` impl on `Part` and replace with automatically-generated implementations for all
+  string-represented constant enums, as well as adding `Display` implementation
+- `MapVisualShape::text` and `MapVisual::text` `style` arguments changed to be type
+  `Option<MapTextStyle>`
+  - The map visual APIs use a different set of options than room visuals, so they need to be a
+    different type to express those options
+  - Note that all color settings for map visuals are much more restrictive: they only accept colors
+    of the form `#FF22DD`, no web-style color names
+- Change `Room::find_exit_to` input type from `&JsString` to `RoomName`
+
+### Additions:
+
+- Add `local::serde_position_packed` module, for use with the `with` serde attribute, allowing
+  serialized positions to be stored as packed even with human-readable serializers
+- New types `MapFontStyle`, `MapFontVariant`, `MapTextStyle` for use in the changes to map visuals
+- Newly public functions `RoomName::x_coord` and `RoomName::y_coord` to get the position of a room
+  in the world map
+- Add `LocalRoomTerrain`, a wrapper in wasm memory of the data in a `RoomTerrain` object.
+
+### Bugfixes:
+
+- Fix incorrect return values in `StructureType::initial_hits` and `ResourceType::boost` constant
+  functions
+- Use `std::Cow` in custom deserialization process for `StructureType` and `ResourceType` to fix
+  failures when deserializing in some cases, like from `serde_json::Value`
+
+0.15.0 (2023-08-03)
+===================
+
+### Breaking:
+
+- Move `game::gcl::total_for_level` to `constants::math::control_points_for_gcl` and move 
+  `game::gpl::total_for_level` to `constants::math::power_for_gpl`
+- Change `constants::math::power_for_gpl` to return `u128` to allow for valid values to be
+  calculated for all possible input `u32` values
+- Rename `RoomObject::pos` to `RoomObject::js_pos` to avoid confusion with `HasPosition::pos`
+  and remove the possibiliy for differing behavior based on whether the trait was imported
+- Change `Source::ticks_to_regeneration` and `Mineral::ticks_to_regeneration` return types to
+  `Option<u32>`, returning `None` when the timer isn't active instead of panic
+- Change `RoomTerrain::new` room name argument type from `&JsString` to `RoomName`
+
+### Additions:
+
+- Add `RoomName::checked_add` to allow a math to be done on the position of the room on the map
+  without the potential to panic that the `ops::Add` implementation has
+- Add `const` to most functions representing constants, so they can be evaluated during compile
+- Fix incorrect value of `constants::extras::FLAG_NAME_MAX_LENGTH` - now 100, previously 60
+- Add new extra constant `constants::extras::POWER_CREEP_CARRY_CAPACITY_PER_LEVEL`
+
+### Bugfixes:
+
+- Fix potential for panic in store functions when called with resource types that the store
+  isn't currently valid for
+
+0.14.0 (2023-07-03)
+===================
+
+### Breaking:
+
+- Revert `RoomTerrain::get_raw_buffer` return type from `Result<Uint8Array, ErrorCode>` back to
+  pre-0.13 `Uint8Array`, since it can't error when called with no destination
+- Add `sim` feature, which enables the sim-related special case name of `sim` for a room at the
+  coordinates of W127N127 (allowing for bots to be built to not include that support)
+
+### Additions:
+
+- Add `?Sized` to `SharedCreepProperties::withdraw` and `transfer` methods to allow dynamic use
+
+0.13.0 (2023-06-27)
+===================
+
+### Breaking:
+
+- Remove `ReturnCode` and replace with `Result<(), ErrorCode>`
+- Change `RoomPosition` and `Position` methods `look` and `look_for` to return a `Result` instead
+  of panicking when used in room not visible in the current tick
+- Remove re-exports of `constants::find::Find` and `constants::look::Look` enums and mark them as
+  hidden from docs, since they're likely to cause confusion and not generally needed
+
+### Additions:
+
+- Add feature `unsafe-return-conversion` that allows skipping bounds checks on return codes for all
+  game functions using integer return codes, risking undefined behavior for values outside the
+  expected range
+- Add `Position::checked_from_world_coords` allowing an error return instead of a panic for out of
+  bounds coordinates
+- Add `Position::checked_add` and `Position::checked_add_direction`, alternatives to `Add<_>` which
+  can error
+
+### Bugfixes:
+
+- Fix panic when accessing the store of a creep while spawning
+- Fix js property mapping for `crate::raw_memory::ForeignSegment::id`
+
+0.12.2 (2023-06-17)
+===================
+
+### Additions:
+
+- Add custom implementation of `Debug` for `RoomName` showing the non-packed name
+- Add implementation of `From<ExitDirection>` for `Exit`
+- Added extra constants for CPU cost per intent, `INTENT_CPU_COST`, and the range of creeps' ranged
+  actions, `CREEP_RANGED_ACTION_RANGE`
+
+0.12.1 (2023-06-10)
+===================
+
+### Additions:
+
+- Add undocumented `LOOK_REACTORS` season 5 constant
+
+### Bugfixes:
+
+- Add `HasNativeId` and `Transferable` traits to `Reactor`
+- Add `Transferable` and `Withdrawable` traits to season 1 and 2 object types
+
+0.12.0 (2023-06-07)
+===================
+
+### Breaking:
+
+- Remove `Density::iter_values`, update documentation to indicate `enum_iterator::all` should be
+  used instead
+- Move `CostMatrixSet` and `HasLocalPosition` traits from `crate::objects` to `crate::traits`
+
+### Additions:
+
+- Add `Creep::claim_reactor` function for season 5
+- Add `Density::thorium_amount` function with additional season 5 constants
+- Implement `From<Direction>` for `(i32, i32)`, as well as `Add<Direction>` and `Sub<Direction>`
+  for `Position`, to support using directions for position math
+
+### Bugfixes:
+
+- Fix `SearchOptions` not mapping to camel-cased field names when converting to js object. Fixes
+  `pathfinder::search` not using the specified settings for `max_ops`, `plain_cost`, etc.
+
+### Misc:
+
+- Reorganize `crate::objects` module with some new public sub-modules to group them logically, with
+  all of their contents re-exported to maintain compatibiltiy with existing imports
+
+0.11.0 (2023-05-29)
+===================
+
+### Breaking:
+
+- Move `crate::inter_shard_memory::InterShardMemory::*` to `crate::inter_shard_memory::*` and move
+  `crate::raw_memory::RawMemory::*` to `crate::raw_memory::*` for consistency
+- Update `enum-iterator` to 1.4 (`IntoEnumIterator` trait replaced with `Sequence`)
+- Remove re-exports of `game::*`, `pathfinder::*`, and `raw_memory::*` to resolve name conflict
+  and simplify crate namespace
+
+### Additions:
+
+- Implement `TryFrom<JsString>` for `RawObjectId`
+- Implement `FromStr` for `JsObjectId`
+- Implement `BODYPARTS_ALL`, `RESOURCES_ALL`, and `COLORS_ALL` constants using `enum-iterator`
+- Implement `std::error::Error` for `OutOfBoundsError`, to make it more ergonomic to use with
+  other error types
+- Added `Default` derivation for `RoomCoordinate` and `RoomXY`
+- Added `Thorium` resource, `Reactor` room object, and relevant constants and formulas for season
+  5; added `thorium` feature which enables `Reactor` and `Thorium`, and the `seasonal-season-5`
+  feature which enables the seasonal constants as well as the `thorium` feature
+
+### Bugfixes:
+
+- Fix `TextStyle::stroke_width` and `TextStyle::background_padding` functions setting incorrect
+  values
+
+### Misc:
+
+- Update `serde-wasm-bindgen` to 0.5
+
+0.10.0 (2023-03-13)
+===================
+
+### Notably breaking:
+
+- Convert from stdweb to wasm-bindgen as underlying framework. While extensive effort was put into
+  keeping the API as similar as possible to prior versions, breaking changes are present
+  throughout the API as well as associated representations, such as resource types' serialized
+  values; bots still using stdweb APIs should target version 0.9.
+
+0.9.1 (2022-09-08)
+==================
+
 - Fixed `Room::serialize_path` and `Room::deserialize_path`, which are static methods and don't
-  exist on instances of `Room` objects themselves.
+  exist on instances of `Room` objects themselves
+- Changed `BuildEvent` to match what's returned by the game, which doesn't match the documentation
+- Add the `generate-pixel`, `inter-shard-memory`, and `score` features which enable features not
+  present in all server environments
+- Add the `mmo` feature which activates the `generate-pixel` and `inter-shard-memory` because
+  these interfaces don't exist on private servers
+- Add the `seasonal-season-1` feature for season 1, which activates the `score` feature
+- Add the `symbols` feature to support season 2
+- Add the `seasonal-season-2` feature for season 2, which activates the `symbols` feature
 
 0.9.0 (2021-01-23)
 ==================
@@ -14,7 +234,7 @@ Unreleased
 - Remove `constants::INVADER_CORE_EXPAND_TIME`, replaced by per-level
   `constants::invader_core_expand_time`
 - Add the ability to mark a room as impassable when using the pathfinder. Converts callback
-  functions for room cost to use `SingleRoomCostResult` and `MultiRoomCostResult` as appropriate.
+  functions for room cost to use `SingleRoomCostResult` and `MultiRoomCostResult` as appropriate
 
 ### Additions:
 
@@ -29,7 +249,7 @@ Unreleased
 - Add new `IntershardResourceType::CPUUnlock`, `IntershardResourceType::Pixel`, and
   `IntershardResourceType::AccessKey` resources
 - Add `game::cpu::generate_pixel` and `constants::PIXEL_CPU_COST`
-- Update `constants::PIXEL_CPU_COST` to match game balance change.
+- Update `constants::PIXEL_CPU_COST` to match game balance change
 
 ### Bugfixes:
 
@@ -108,7 +328,7 @@ Unreleased
 - Add `RoomTerrain::get_raw_buffer_to_array` to load a room's terrain into an existing `[u8; 2500]`
 - Add `game::gcl::total_for_level` and `game::gpl::total_for_level` which calculate the total
   lifetime points required for a given level of GCL or GPL
-- Add `CostMatrixSet` trait to allow applying costs to a cost matrix generically.
+- Add `CostMatrixSet` trait to allow applying costs to a cost matrix generically
 
 ### Bugfixes:
 

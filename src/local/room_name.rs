@@ -1,12 +1,17 @@
 use std::{
     cmp::{Ord, Ordering, PartialOrd},
-    error,
+    convert::TryFrom,
+    error::Error,
     fmt::{self, Write},
     ops,
     str::FromStr,
 };
 
 use arrayvec::ArrayString;
+use js_sys::JsString;
+use wasm_bindgen::{JsCast, JsValue};
+
+use crate::prelude::*;
 
 use super::{HALF_WORLD_SIZE, VALID_ROOM_NAME_COORDINATES};
 
@@ -27,7 +32,7 @@ use super::{HALF_WORLD_SIZE, VALID_ROOM_NAME_COORDINATES};
 /// from above.
 ///
 /// [`BTreeMap`]: std::collections::BTreeMap
-#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
+#[derive(Copy, Clone, Eq, PartialEq, Hash)]
 pub struct RoomName {
     /// A bit-packed integer, containing, from highest-order to lowest:
     ///
@@ -51,28 +56,41 @@ impl fmt::Display for RoomName {
     /// Resulting string will be `(E|W)[0-9]+(N|S)[0-9]+`, and will result
     /// in the same RoomName if passed into [`RoomName::new`].
     ///
+    /// If the `sim` feature is enabled, the room corresponding to W127N127
+    /// outputs `sim` instead.
+    ///
     /// [`RoomName::new`]: struct.RoomName.html#method.new
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if cfg!(feature = "sim") && self.packed == 0 {
+            write!(f, "sim")?;
+            return Ok(());
+        }
+
         let x_coord = self.x_coord();
         let y_coord = self.y_coord();
 
-        if self.packed == 0 {
-            write!(f, "sim")?;
+        if x_coord >= 0 {
+            write!(f, "E{}", x_coord)?;
         } else {
-            if x_coord >= 0 {
-                write!(f, "E{}", x_coord)?;
-            } else {
-                write!(f, "W{}", -x_coord - 1)?;
-            }
+            write!(f, "W{}", -x_coord - 1)?;
+        }
 
-            if y_coord >= 0 {
-                write!(f, "S{}", y_coord)?;
-            } else {
-                write!(f, "N{}", -y_coord - 1)?;
-            }
+        if y_coord >= 0 {
+            write!(f, "S{}", y_coord)?;
+        } else {
+            write!(f, "N{}", -y_coord - 1)?;
         }
 
         Ok(())
+    }
+}
+
+impl fmt::Debug for RoomName {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("RoomName")
+            .field("packed", &self.packed)
+            .field("real", &self.to_array_string())
+            .finish()
     }
 }
 
@@ -83,7 +101,9 @@ impl RoomName {
     /// invalid room name.
     ///
     /// The expected format can be represented by the regex
-    /// `[ewEW][0-9]+[nsNS][0-9]+`.
+    /// `[ewEW][0-9]+[nsNS][0-9]+`. If the `sim` feature is enabled, `sim` is
+    /// also valid and uses the packed position of W127N127 (0), matching the
+    /// game's internal implementation of the sim room's packed positions.
     #[inline]
     pub fn new<T>(x: &T) -> Result<Self, RoomNameParseError>
     where
@@ -93,7 +113,7 @@ impl RoomName {
     }
 
     #[inline]
-    pub(crate) fn from_packed(packed: u16) -> Self {
+    pub(crate) const fn from_packed(packed: u16) -> Self {
         RoomName { packed }
     }
 
@@ -125,7 +145,7 @@ impl RoomName {
     ///
     /// For `Wxx` rooms, returns `-xx - 1`. For `Exx` rooms, returns `xx`.
     #[inline]
-    pub(super) fn x_coord(&self) -> i32 {
+    pub const fn x_coord(&self) -> i32 {
         ((self.packed >> 8) & 0xFF) as i32 - HALF_WORLD_SIZE
     }
 
@@ -133,23 +153,131 @@ impl RoomName {
     ///
     /// For `Nyy` rooms, returns `-yy - 1`. For `Syy` rooms, returns `yy`.
     #[inline]
-    pub(super) fn y_coord(&self) -> i32 {
+    pub const fn y_coord(&self) -> i32 {
         (self.packed & 0xFF) as i32 - HALF_WORLD_SIZE
     }
 
     #[inline]
-    pub(super) fn packed_repr(&self) -> u16 {
+    pub(super) const fn packed_repr(&self) -> u16 {
         self.packed
+    }
+
+    /// Adds an `(x, y)` pair to this room's name.
+    ///
+    /// # Errors
+    /// Returns an error if the coordinates are outside of the valid room name
+    /// bounds.
+    ///
+    /// For a panicking variant of this function, use the implementation of
+    /// [`ops::Add`] for `(i32, i32)`.
+    pub fn checked_add(&self, offset: (i32, i32)) -> Option<RoomName> {
+        let (x1, y1) = (self.x_coord(), self.y_coord());
+        let (x2, y2) = offset;
+        let new_x = x1.checked_add(x2)?;
+        let new_y = y1.checked_add(y2)?;
+        Self::from_coords(new_x, new_y).ok()
     }
 
     /// Converts this RoomName into an efficient, stack-based string.
     ///
     /// This is equivalent to [`ToString::to_string`], but involves no
     /// allocation.
-    pub fn to_array_string(&self) -> ArrayString<[u8; 8]> {
+    pub fn to_array_string(&self) -> ArrayString<8> {
         let mut res = ArrayString::new();
-        write!(res, "{}", self).expect("expected ArrayString write to be infallible");
+        write!(res, "{self}").expect("expected ArrayString write to be infallible");
         res
+    }
+}
+
+impl From<RoomName> for JsValue {
+    fn from(name: RoomName) -> JsValue {
+        let array = name.to_array_string();
+
+        JsValue::from_str(array.as_str())
+    }
+}
+
+impl From<&RoomName> for JsValue {
+    fn from(name: &RoomName) -> JsValue {
+        let array = name.to_array_string();
+
+        JsValue::from_str(array.as_str())
+    }
+}
+
+impl From<RoomName> for JsString {
+    fn from(name: RoomName) -> JsString {
+        let val: JsValue = name.into();
+
+        val.unchecked_into()
+    }
+}
+
+impl From<&RoomName> for JsString {
+    fn from(name: &RoomName) -> JsString {
+        let val: JsValue = name.into();
+
+        val.unchecked_into()
+    }
+}
+
+/// An error representing when a string can't be parsed into a
+/// [`RoomName`].
+///
+/// [`RoomName`]: struct.RoomName.html
+#[derive(Clone, Debug)]
+pub enum RoomNameConversionError {
+    InvalidType,
+    ParseError { err: RoomNameParseError },
+}
+
+impl Error for RoomNameConversionError {}
+
+impl fmt::Display for RoomNameConversionError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            RoomNameConversionError::InvalidType => {
+                write!(f, "got invalid input type to room name conversion")
+            }
+            RoomNameConversionError::ParseError { err } => err.fmt(f),
+        }
+    }
+}
+
+impl TryFrom<JsValue> for RoomName {
+    type Error = RoomNameConversionError;
+
+    fn try_from(val: JsValue) -> Result<RoomName, Self::Error> {
+        let val: String = val
+            .as_string()
+            .ok_or(RoomNameConversionError::InvalidType)?;
+
+        RoomName::from_str(&val).map_err(|err| RoomNameConversionError::ParseError { err })
+    }
+}
+
+impl TryFrom<JsString> for RoomName {
+    type Error = <RoomName as FromStr>::Err;
+
+    fn try_from(val: JsString) -> Result<RoomName, Self::Error> {
+        let val: String = val.into();
+
+        RoomName::from_str(&val)
+    }
+}
+
+impl JsCollectionIntoValue for RoomName {
+    fn into_value(self) -> JsValue {
+        self.into()
+    }
+}
+
+impl JsCollectionFromValue for RoomName {
+    fn from_value(val: JsValue) -> Self {
+        let val: JsString = val.unchecked_into();
+        let val: String = val.into();
+
+        RoomName::from_str(&val).expect("expected parseable room name")
     }
 }
 
@@ -214,7 +342,7 @@ impl ops::Sub<RoomName> for RoomName {
 impl FromStr for RoomName {
     type Err = RoomNameParseError;
 
-    fn from_str(s: &str) -> Result<Self, RoomNameParseError> {
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
         parse_to_coords(s)
             .map_err(|()| RoomNameParseError::new(s))
             .and_then(|(x, y)| RoomName::from_coords(x, y))
@@ -222,7 +350,7 @@ impl FromStr for RoomName {
 }
 
 fn parse_to_coords(s: &str) -> Result<(i32, i32), ()> {
-    if s == "sim" {
+    if cfg!(feature = "sim") && s == "sim" {
         return Ok((-HALF_WORLD_SIZE, -HALF_WORLD_SIZE));
     }
 
@@ -280,7 +408,7 @@ fn parse_to_coords(s: &str) -> Result<(i32, i32), ()> {
 #[derive(Clone, Debug)]
 pub enum RoomNameParseError {
     TooLarge { length: usize },
-    InvalidString { string: ArrayString<[u8; 8]> },
+    InvalidString { string: ArrayString<8> },
     PositionOutOfBounds { x_coord: i32, y_coord: i32 },
 }
 
@@ -296,7 +424,7 @@ impl RoomNameParseError {
     }
 }
 
-impl error::Error for RoomNameParseError {}
+impl Error for RoomNameParseError {}
 
 impl fmt::Display for RoomNameParseError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -304,18 +432,15 @@ impl fmt::Display for RoomNameParseError {
             RoomNameParseError::TooLarge { length } => write!(
                 f,
                 "got invalid room name, too large to stick in error. \
-                 expected length 8 or less, got length {}",
-                length
+                 expected length 8 or less, got length {length}"
             ),
             RoomNameParseError::InvalidString { string } => write!(
                 f,
-                "expected room name formatted `[ewEW][0-9]+[nsNS][0-9]+`, found `{}`",
-                string
+                "expected room name formatted `[ewEW][0-9]+[nsNS][0-9]+`, found `{string}`"
             ),
             RoomNameParseError::PositionOutOfBounds { x_coord, y_coord } => write!(
                 f,
-                "expected room name with coords within -128..+128, found {}, {}",
-                x_coord, y_coord,
+                "expected room name with coords within -128..+128, found {x_coord}, {y_coord}"
             ),
         }
     }
@@ -358,7 +483,7 @@ impl PartialEq<RoomName> for &str {
 impl PartialEq<String> for RoomName {
     #[inline]
     fn eq(&self, other: &String) -> bool {
-        <RoomName as PartialEq<str>>::eq(self, &other)
+        <RoomName as PartialEq<str>>::eq(self, other)
     }
 }
 
@@ -445,22 +570,81 @@ mod serde {
             deserializer.deserialize_str(RoomNameVisitor)
         }
     }
-
-    js_deserializable!(RoomName);
-    js_serializable!(RoomName);
 }
 
 #[cfg(test)]
 mod test {
+    use crate::RoomName;
+
     #[test]
     fn test_string_equality() {
         use super::RoomName;
-        let room_names = vec!["E21N4", "w6S42", "W17s5", "e2n5", "sim"];
+        let top_left_room = if cfg!(feature = "sim") {
+            "sim"
+        } else {
+            "W127N127"
+        };
+        let room_names = vec!["E21N4", "w6S42", "W17s5", "e2n5", top_left_room];
         for room_name in room_names {
             assert_eq!(room_name, RoomName::new(room_name).unwrap());
             assert_eq!(RoomName::new(room_name).unwrap(), room_name);
             assert_eq!(RoomName::new(room_name).unwrap(), &room_name.to_string());
             assert_eq!(&room_name.to_string(), RoomName::new(room_name).unwrap());
         }
+    }
+
+    #[test]
+    fn checked_add() {
+        let w0n0 = RoomName::new("W0N0").unwrap();
+        let e0n0 = RoomName::new("E0N0").unwrap();
+        let e10n75 = RoomName::new("E10N75").unwrap();
+        let w3n53 = RoomName::new("W3N53").unwrap();
+
+        // corners
+        let w127n127 = RoomName::new("W127N127").unwrap();
+        let w127s127 = RoomName::new("W127S127").unwrap();
+        let e127n127 = RoomName::new("E127N127").unwrap();
+        let e127s127 = RoomName::new("E127S127").unwrap();
+
+        // side
+        let w127n5 = RoomName::new("W127N5").unwrap();
+
+        // valid
+        assert_eq!(w0n0.checked_add((1, 0)), Some(e0n0));
+        assert_eq!(e0n0.checked_add((10, -75)), Some(e10n75));
+        assert_eq!(e10n75.checked_add((-14, 22)), Some(w3n53));
+        assert_eq!(w3n53.checked_add((-124, -74)), Some(w127n127));
+
+        assert_eq!(w127n127.checked_add((127, 127)), Some(w0n0));
+        assert_eq!(w127s127.checked_add((127, -128)), Some(w0n0));
+        assert_eq!(e127n127.checked_add((-128, 127)), Some(w0n0));
+        assert_eq!(e127s127.checked_add((-128, -128)), Some(w0n0));
+        assert_eq!(w127n5.checked_add((127, 5)), Some(w0n0));
+
+        // overflow
+        assert_eq!(w127n127.checked_add((-1, 0)), None);
+        assert_eq!(w127n127.checked_add((-10, 10)), None);
+        assert_eq!(w127n127.checked_add((i32::MIN, 0)), None);
+        assert_eq!(w127n127.checked_add((i32::MIN, i32::MAX)), None);
+
+        assert_eq!(w127s127.checked_add((-1, 0)), None);
+        assert_eq!(w127s127.checked_add((-10, 10)), None);
+        assert_eq!(w127s127.checked_add((i32::MIN, 0)), None);
+        assert_eq!(w127s127.checked_add((i32::MIN, i32::MAX)), None);
+
+        assert_eq!(e127n127.checked_add((1, 0)), None);
+        assert_eq!(e127n127.checked_add((-1, -10)), None);
+        assert_eq!(e127n127.checked_add((i32::MIN, 0)), None);
+        assert_eq!(e127n127.checked_add((i32::MIN, i32::MAX)), None);
+
+        assert_eq!(e127s127.checked_add((1, 0)), None);
+        assert_eq!(e127s127.checked_add((-1, 10)), None);
+        assert_eq!(e127s127.checked_add((i32::MIN, 0)), None);
+        assert_eq!(e127s127.checked_add((i32::MIN, i32::MAX)), None);
+
+        assert_eq!(w127n5.checked_add((-1, 0)), None);
+        assert_eq!(w127n5.checked_add((-1, 10)), None);
+        assert_eq!(w127n5.checked_add((i32::MIN, 0)), None);
+        assert_eq!(w127n5.checked_add((i32::MIN, i32::MAX)), None);
     }
 }

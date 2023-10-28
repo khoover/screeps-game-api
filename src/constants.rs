@@ -1,78 +1,82 @@
-//! Constants, most copied from [the game constants].
+//! Constants, most copied from [the game constants][1].
 //!
-//! Last updated on 2020-12-13, `e4589666113334bb1f967b9a5540b642141b6dab` from
-//! <https://github.com/screeps/common/commits/master/lib/constants.js>.
+//! Last updated on 2020-12-13, at commit
+//! `e4589666113334bb1f967b9a5540b642141b6dab`.
 //!
 //! Currently missing:
 //! - OBSTACLE_OBJECT_TYPES
 //! - WORLD_WIDTH / WORLD_HEIGHT (deprecated in Screeps)
-//! - BODYPARTS_ALL, RESOURCES_ALL, COLORS_ALL
 //! - POWER_INFO
 //!
-//! # Notes on Deserialization
-//!
-//! There are two general types of enum constants in this file. Some are
-//! represented by integers in the game - and those are represented by integers
-//! in screeps. Their [`serde::Deserialize`], `TryFrom<Value>` and
-//! [`num_traits::FromPrimitive`] implementations will convert from these
-//! integers.
-//!
-//! The other type is enums represented by strings in the game, but integers in
-//! this repository. This change in representation is done for efficiency, as
-//! transferring strings from JavaScript to Rust is much slower than a single
-//! integer.
-//!
-//! This second type of enum will also implement [`serde::Deserialize`],
-//! `TryFrom<Value>`, but these will not convert from the made-up integer
-//! values, and will fail converting from the constant strings from the game.
-//!
-//! To convert from constant strings, you have two options, depending on the
-//! context.
-//!
-//! If you need to manually consume from a value in JavaScript, there are two
-//! utility JavaScript functions per enum. They generally take the form
-//! `__TYPE_num_to_str` and `__TYPE_str_to_num`. For example,
-//! `__structure_type_num_to_str` and `__structure_type_str_to_num` convert
-//! between [`StructureType`] integer representations and string
-//! representations. See documentation on enums for more conversion functions.
-//!
-//! To use these, call the functions in JavaScript, like so:
-//!
-//! ```no_run
-//! use screeps::{game, traits::TryInto, StructureType};
-//! use stdweb::js;
-//!
-//! let spawns = game::spawns::values();
-//! let r: StructureType = (js! {
-//!     return __structure_type_str_to_num(@{spawns[0].as_ref()}.structureType);
-//! })
-//! .try_into()
-//! .expect("expected structure type to convert successfully");
-//! ```
-//!
-//! If you need to consume strings already in Rust, use either the [`FromStr`]
-//! trait, or one of the `deserialize_from_str` functions on each of these
-//! constants. To get back to these values from Rust native enums (instead of
-//! the integer representation we serialize to), use the [`Display`] trait or
-//! the `to_string` fuctions on the native enums.
-//!
-//! [the game constants]: https://github.com/screeps/common/blob/master/lib/constants.js
-//! [`FromStr`]: std::str::FromStr
-//! [`Display`]: std::fmt::Display
+//! [1]: https://github.com/screeps/common/commits/master/lib/constants.js
+
+use std::{error::Error, fmt};
+
+#[derive(Debug, Clone)]
+pub struct InvalidConstantString(String);
+
+impl fmt::Display for InvalidConstantString {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "value not valid for constant: {}", self.0)
+    }
+}
+
+impl Error for InvalidConstantString {}
+
+pub(crate) mod macros {
+    macro_rules! named_enum_serialize_deserialize {
+        ($ty:ty) => {
+            impl<'de> Deserialize<'de> for $ty {
+                fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+                where
+                    D: serde::Deserializer<'de>,
+                {
+                    let s: Cow<'de, str> = Cow::deserialize(deserializer)?;
+                    <$ty>::from_str(&s).ok_or(D::Error::invalid_value(
+                        Unexpected::Str(&s),
+                        &stringify!($ty),
+                    ))
+                }
+            }
+            impl Serialize for $ty {
+                fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+                where
+                    S: serde::Serializer,
+                {
+                    serializer.serialize_str(self.to_str())
+                }
+            }
+            impl fmt::Display for $ty {
+                fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                    write!(f, "{}", self.to_str())
+                }
+            }
+            impl std::str::FromStr for $ty {
+                // add a new error type for this -  or something
+                type Err = InvalidConstantString;
+
+                fn from_str(s: &str) -> Result<Self, Self::Err> {
+                    Self::from_str(s).ok_or(InvalidConstantString(s.to_owned()))
+                }
+            }
+        };
+    }
+    pub(crate) use named_enum_serialize_deserialize;
+}
+
+pub mod extra;
 pub mod find;
 pub mod look;
+pub mod math;
 mod numbers;
 mod recipes;
+pub mod seasonal;
 mod small_enums;
 mod types;
 
 pub use self::{
-    find::FindConstant,
-    look::{Look, LookConstant},
-    numbers::*,
-    recipes::FactoryRecipe,
-    small_enums::*,
-    types::*,
+    extra::*, find::FindConstant, look::LookConstant, math::*, numbers::*, recipes::FactoryRecipe,
+    small_enums::*, types::*,
 };
 
 /// Re-export of all constants related to [`Creep`] behavior and operations.
@@ -80,6 +84,10 @@ pub use self::{
 /// [`Creep`]: crate::objects::Creep
 pub mod creep {
     pub use super::{
+        extra::{
+            CREEP_HITS_PER_PART, MOVE_POWER, RANGED_MASS_ATTACK_POWER_RANGE_1,
+            RANGED_MASS_ATTACK_POWER_RANGE_2, RANGED_MASS_ATTACK_POWER_RANGE_3,
+        },
         numbers::{
             ATTACK_POWER, BUILD_POWER, CARRY_CAPACITY, CREEP_CLAIM_LIFE_TIME, CREEP_CORPSE_RATE,
             CREEP_LIFE_TIME, CREEP_PART_MAX_ENERGY, CREEP_SPAWN_TIME, DISMANTLE_COST,
@@ -87,13 +95,14 @@ pub mod creep {
             MAX_CREEP_SIZE, RANGED_HEAL_POWER, REPAIR_COST, REPAIR_POWER, SPAWN_RENEW_RATIO,
             UPGRADE_CONTROLLER_POWER,
         },
-        small_enums::{Part, ReturnCode},
+        small_enums::Part,
     };
 }
 
 /// Re-export of all constants related to structures.
 pub mod structure {
     pub use super::{
+        extra::{LAB_REACTION_RANGE, TERMINAL_SEND_COST_SCALE},
         numbers::{
             extension_energy_capacity, invader_core_creep_spawn_time, invader_core_expand_time,
             rampart_hits_max, ruin_decay_structures, stronghold_rampart_hits,
@@ -152,6 +161,7 @@ pub mod control {
 /// Re-export of all constants related to power.
 pub mod power {
     pub use super::{
+        extra::POWER_CREEP_HITS_PER_LEVEL,
         numbers::{
             POWER_BANK_CAPACITY_MAX, POWER_BANK_CAPACITY_MIN, POWER_BANK_DECAY, POWER_BANK_HITS,
             POWER_BANK_HIT_BACK, POWER_BANK_RESPAWN_TIME, POWER_CREEP_DELETE_COOLDOWN,
@@ -159,8 +169,7 @@ pub mod power {
             POWER_LEVEL_MULTIPLY, POWER_LEVEL_POW, POWER_SPAWN_ENERGY_CAPACITY,
             POWER_SPAWN_ENERGY_RATIO, POWER_SPAWN_POWER_CAPACITY,
         },
-        small_enums::PowerClass,
-        types::PowerType,
+        types::{PowerCreepClass, PowerType},
     };
 }
 

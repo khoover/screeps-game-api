@@ -10,13 +10,12 @@ impl fmt::Display for RawObjectIdParseError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             RawObjectIdParseError::Parse(e) => {
-                write!(f, "error parsing object id hex digits: {}", e)
+                write!(f, "error parsing object id hex digits: {e}")
             }
             RawObjectIdParseError::LargeValue(value) => write!(
                 f,
                 "string contained hex value too big be object id. \
-                 value {} bigger than maximum for 24 digits",
-                value
+                 value {value} bigger than maximum for 24 digits"
             ),
         }
     }
@@ -38,7 +37,7 @@ impl From<ParseIntError> for RawObjectIdParseError {
 }
 
 impl RawObjectIdParseError {
-    pub(crate) fn value_too_large(val: u128) -> Self {
+    pub(crate) const fn value_too_large(val: u128) -> Self {
         RawObjectIdParseError::LargeValue(val)
     }
 }

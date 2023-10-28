@@ -3,12 +3,15 @@
 //! This is a reimplementation/translation of the `RoomPosition` code originally
 //! written in JavaScript. All RoomPosition to RoomPosition operations in this
 //! file stay within Rust.
+use core::fmt::Debug;
 use std::{
     cmp::{Ord, Ordering, PartialOrd},
     fmt,
 };
 
-use super::{RoomName, HALF_WORLD_SIZE};
+use crate::{constants::ROOM_SIZE, objects::RoomPosition, HasPosition};
+
+use super::{RoomCoordinate, RoomName, RoomXY, HALF_WORLD_SIZE};
 
 mod approximate_offsets;
 mod extra_math;
@@ -49,35 +52,21 @@ mod world_utils;
 /// u32}` in "human readable" formats like JSON, and will serialize as a single
 /// `i32` in "non-human readable" formats like [`bincode`].
 ///
-/// You can also pass `Position` into JavaScript using the `js!{}`
-/// macro provided by `stdweb`, or helper methods using the same code like
-/// [`MemoryReference::set`][crate::memory::MemoryReference::set]. It will be
-/// serialized the same as in JSON, as an object with `roomName`, `x` and `y`
-/// properties.
+/// If you need a reference to a `RoomPosition` in JavaScript,
+/// convert the native [`Position`] to a [`RoomPosition`]:
 ///
-/// *Note:* serializing using `js!{}` or `MemoryReference::set` will _not_
-/// create a JavaScript `RoomPosition`, only something with the same properties.
+/// ```no_run
+/// use screeps::{Position, RoomCoordinate, RoomPosition};
+/// use std::convert::TryFrom;
 ///
-/// If you need a reference to a `RoomPosition` in JavaScript to use manually,
-/// you have two options:
-///
-/// - Use `.remote()` to get a `stdweb::Reference`, and then use that reference
-///   in JavaScript
-///
-/// - Convert the room position to an integer with [`Position::packed_repr`],
-///   send that to JS, and use the `pos_from_packed` JavaScript function
-///   provided by this library:
-///
-///   ```no_run
-///   use stdweb::js;
-///   use screeps::Position;
-///
-///   let pos = Position::new(20, 21, "E5N6".parse().unwrap());
-///   let result = js! {
-///       let pos = pos_from_packed(@{pos.packed_repr()});
-///       pos.roomName
-///   };
-///   ```
+/// let pos = Position::new(
+///     RoomCoordinate::try_from(20).unwrap(),
+///     RoomCoordinate::try_from(21).unwrap(),
+///     "E5N6".parse().unwrap(),
+/// );
+/// let js_pos = RoomPosition::from(pos);
+/// let result = js_pos.room_name();
+/// ```
 ///
 /// # Deserialization
 ///
@@ -149,9 +138,18 @@ mod world_utils;
 /// The `Add` implementation can be used to add an offset to a position:
 ///
 /// ```
-/// # use screeps::Position;
-/// let pos1 = Position::new(0, 0, "E1N1".parse().unwrap());
-/// let pos2 = Position::new(40, 20, "E1N1".parse().unwrap());
+/// # use std::convert::TryFrom;
+/// # use screeps::{Position, RoomCoordinate};
+/// let pos1 = Position::new(
+///     RoomCoordinate::try_from(0).unwrap(),
+///     RoomCoordinate::try_from(0).unwrap(),
+///     "E1N1".parse().unwrap(),
+/// );
+/// let pos2 = Position::new(
+///     RoomCoordinate::try_from(40).unwrap(),
+///     RoomCoordinate::try_from(20).unwrap(),
+///     "E1N1".parse().unwrap(),
+/// );
 /// assert_eq!(pos1 + (40, 20), pos2);
 /// ```
 ///
@@ -159,12 +157,25 @@ mod world_utils;
 /// positions:
 ///
 /// ```
-/// # use screeps::Position;
-/// let pos1 = Position::new(4, 20, "E20S21".parse().unwrap());
-/// let pos2 = Position::new(4, 30, "E20S22".parse().unwrap());
+/// # use std::convert::TryFrom;
+/// # use screeps::{Position, RoomCoordinate};
+/// let pos1 = Position::new(
+///     RoomCoordinate::try_from(4).unwrap(),
+///     RoomCoordinate::try_from(20).unwrap(),
+///     "E20S21".parse().unwrap(),
+/// );
+/// let pos2 = Position::new(
+///     RoomCoordinate::try_from(4).unwrap(),
+///     RoomCoordinate::try_from(30).unwrap(),
+///     "E20S22".parse().unwrap(),
+/// );
 /// assert_eq!(pos2 - pos1, (0, 60));
 ///
-/// let pos3 = Position::new(0, 0, "E20S21".parse().unwrap());
+/// let pos3 = Position::new(
+///     RoomCoordinate::try_from(0).unwrap(),
+///     RoomCoordinate::try_from(0).unwrap(),
+///     "E20S21".parse().unwrap(),
+/// );
 /// assert_eq!(pos3 - pos1, (-4, -20));
 /// ```
 ///
@@ -187,8 +198,9 @@ mod world_utils;
 /// from above.
 ///
 /// [`bincode`]: https://github.com/servo/bincode
-/// [`HasPosition::pos`]: crate::HasPosition::pos
+/// [`RoomObject::pos`]: crate::RoomObject::pos
 /// [`BTreeMap`]: std::collections::BTreeMap
+/// [`serde::Serialize`]: ::serde::Serialize
 #[derive(Copy, Clone, Eq, PartialEq, Hash)]
 #[repr(transparent)]
 pub struct Position {
@@ -233,6 +245,9 @@ impl fmt::Display for Position {
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct WorldPositionOutOfBoundsError(pub i32, pub i32);
+
 impl Position {
     /// Create a new Position
     ///
@@ -241,11 +256,8 @@ impl Position {
     /// Will panic if either `x` or `y` is larger than 49, or if `room_name` is
     /// outside of the range `E127N127 - W127S127`.
     #[inline]
-    pub fn new(x: u32, y: u32, room_name: RoomName) -> Self {
-        assert!(x < 50, "out of bounds x: {}", x);
-        assert!(y < 50, "out of bounds y: {}", y);
-
-        Self::from_coords_adjusted_and_room_packed(x, y, room_name.packed_repr())
+    pub fn new(x: RoomCoordinate, y: RoomCoordinate, room_name: RoomName) -> Self {
+        Self::from_coords_adjusted_and_room_packed(x.into(), y.into(), room_name.packed_repr())
     }
 
     /// Creates a `Position` from x,y coordinates and room coordinates
@@ -253,9 +265,9 @@ impl Position {
     ///
     /// Non-public as this doesn't check the bounds for any of these values.
     #[inline]
-    fn from_coords_and_world_coords_adjusted(x: u32, y: u32, room_x: u32, room_y: u32) -> Self {
+    const fn from_coords_and_world_coords_adjusted(x: u8, y: u8, room_x: u32, room_y: u32) -> Self {
         Position {
-            packed: (room_x << 24) | (room_y << 16) | (x << 8) | y,
+            packed: (room_x << 24) | (room_y << 16) | ((x as u32) << 8) | (y as u32),
         }
     }
 
@@ -264,22 +276,24 @@ impl Position {
     ///
     /// Non-public as this doesn't check the bounds for any of these values.
     #[inline]
-    fn from_coords_adjusted_and_room_packed(x: u32, y: u32, room_repr_packed: u16) -> Self {
+    const fn from_coords_adjusted_and_room_packed(x: u8, y: u8, room_repr_packed: u16) -> Self {
         Position {
-            packed: ((room_repr_packed as u32) << 16) | (x << 8) | y,
+            packed: ((room_repr_packed as u32) << 16) | ((x as u32) << 8) | (y as u32),
         }
     }
 
     #[inline]
-    pub fn packed_repr(self) -> i32 {
-        self.packed as i32
+    pub const fn packed_repr(self) -> u32 {
+        self.packed
     }
 
     #[inline]
-    pub fn from_packed(packed: i32) -> Self {
-        Position {
-            packed: packed as u32,
-        }
+    pub fn from_packed(packed: u32) -> Self {
+        let x = packed >> 8 & 0xFF;
+        let y = packed & 0xFF;
+        assert!(x < ROOM_SIZE as u32, "out of bounds x: {x}");
+        assert!(y < ROOM_SIZE as u32, "out of bounds y: {y}");
+        Position { packed }
     }
 
     /// Gets the horizontal coordinate of this position's room name.
@@ -296,14 +310,25 @@ impl Position {
 
     /// Gets this position's in-room x coordinate.
     #[inline]
-    pub fn x(self) -> u32 {
-        self.packed >> 8 & 0xFF
+    pub fn x(self) -> RoomCoordinate {
+        // SAFETY: packed always contains a valid x coordinate
+        unsafe { RoomCoordinate::unchecked_new((self.packed >> 8 & 0xFF) as u8) }
     }
 
     /// Gets this position's in-room y coordinate.
     #[inline]
-    pub fn y(self) -> u32 {
-        self.packed & 0xFF
+    pub fn y(self) -> RoomCoordinate {
+        // SAFETY: packed always contains a valid y coordinate
+        unsafe { RoomCoordinate::unchecked_new((self.packed & 0xFF) as u8) }
+    }
+
+    /// Gets this position's in-room [`RoomXY`] coordinate pair
+    #[inline]
+    pub fn xy(self) -> RoomXY {
+        // SAFETY: packed always contains a valid pair
+        unsafe {
+            RoomXY::unchecked_new((self.packed >> 8 & 0xFF) as u8, (self.packed & 0xFF) as u8)
+        }
     }
 
     #[inline]
@@ -312,15 +337,13 @@ impl Position {
     }
 
     #[inline]
-    pub fn set_x(&mut self, x: u32) {
-        assert!(x < 50, "out of bounds x: {}", x);
-        self.packed = (self.packed & !(0xFF << 8)) | (x << 8);
+    pub fn set_x(&mut self, x: RoomCoordinate) {
+        self.packed = (self.packed & !(0xFF << 8)) | ((u8::from(x) as u32) << 8);
     }
 
     #[inline]
-    pub fn set_y(&mut self, y: u32) {
-        assert!(y < 50, "out of bounds y: {}", y);
-        self.packed = (self.packed & !0xFF) | y;
+    pub fn set_y(&mut self, y: RoomCoordinate) {
+        self.packed = (self.packed & !0xFF) | (u8::from(y) as u32);
     }
 
     #[inline]
@@ -330,13 +353,13 @@ impl Position {
     }
 
     #[inline]
-    pub fn with_x(mut self, x: u32) -> Self {
+    pub fn with_x(mut self, x: RoomCoordinate) -> Self {
         self.set_x(x);
         self
     }
 
     #[inline]
-    pub fn with_y(mut self, y: u32) -> Self {
+    pub fn with_y(mut self, y: RoomCoordinate) -> Self {
         self.set_y(y);
         self
     }
@@ -363,64 +386,35 @@ impl Ord for Position {
     }
 }
 
-mod stdweb {
-    use stdweb::{Reference, Value};
-
-    use crate::traits::{TryFrom, TryInto};
-
-    use super::Position;
-
-    impl Position {
-        pub fn remote(self) -> Reference {
-            js_unwrap!(pos_from_packed(@{self.packed_repr()}))
-        }
+impl HasPosition for Position {
+    fn pos(&self) -> Position {
+        *self
     }
+}
 
-    impl TryFrom<Value> for Position {
-        type Error = <Value as TryInto<String>>::Error;
-
-        fn try_from(v: Value) -> Result<Position, Self::Error> {
-            if let Value::Number(v) = v {
-                let packed: i32 = v.try_into()?;
-                return Ok(Position::from_packed(packed));
-            }
-
-            let value = js! {
-                return @{v}.__packedPos;
-            };
-
-            match value {
-                Value::Undefined => {
-                    let x = js! {v.x}.try_into()?;
-                    let y = js! {v.y}.try_into()?;
-                    let room_name = js! {v.roomName}.try_into()?;
-                    Ok(Self::new(x, y, room_name))
-                }
-                other => Ok(Self::from_packed(other.try_into()?)),
-            }
-        }
+impl From<RoomPosition> for Position {
+    fn from(js_pos: RoomPosition) -> Self {
+        Position::from_packed(js_pos.packed())
     }
+}
 
-    impl crate::traits::FromExpectedType<Reference> for Position {
-        fn from_expected_type(reference: Reference) -> Result<Self, crate::ConversionError> {
-            Self::try_from(Value::Reference(reference))
-        }
+impl From<&RoomPosition> for Position {
+    fn from(js_pos: &RoomPosition) -> Self {
+        Position::from_packed(js_pos.packed())
     }
-
-    js_serializable!(Position);
 }
 
 mod serde {
     use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-    use super::{Position, RoomName};
+    use super::{Position, RoomCoordinate, RoomName};
 
     #[derive(Serialize, Deserialize)]
     #[serde(rename_all = "camelCase")]
     struct ReadableFormat {
         room_name: RoomName,
-        x: u32,
-        y: u32,
+        x: RoomCoordinate,
+        y: RoomCoordinate,
     }
 
     impl From<ReadableFormat> for Position {
@@ -460,28 +454,121 @@ mod serde {
             if deserializer.is_human_readable() {
                 ReadableFormat::deserialize(deserializer).map(Into::into)
             } else {
-                i32::deserialize(deserializer).map(Position::from_packed)
+                u32::deserialize(deserializer).map(Position::from_packed)
             }
         }
     }
 }
 
-#[cfg(test)]
-mod test {
+/// Module for use with `serde`'s [`with` attribute] to allow serialization of
+/// positions as their packed representation, even when using a human-readable
+/// serializer.
+///
+/// [`with` attribute]: https://serde.rs/field-attrs.html#with
+pub mod serde_position_packed {
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
     use super::Position;
 
-    const TEST_POSITIONS: &[(i32, (u32, u32, &str))] = &[
-        (-2122440404i32, (33, 44, "E1N1")),
-        (-1803615720i32, (2, 24, "E20N0")),
-        (2139029504i32, (0, 0, "W0N0")),
-        (-2139160576i32, (0, 0, "E0N0")),
-        (2139095040i32, (0, 0, "W0S0")),
-        (-2139095040i32, (0, 0, "E0S0")),
-    ];
+    pub fn serialize<S>(pos: &Position, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        pos.packed_repr().serialize(serializer)
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<Position, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        u32::deserialize(deserializer).map(Position::from_packed)
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::{Position, RoomCoordinate};
+
+    fn gen_test_positions() -> Vec<(u32, (RoomCoordinate, RoomCoordinate, &'static str))> {
+        unsafe {
+            vec![
+                (
+                    2172526892u32,
+                    (
+                        RoomCoordinate::unchecked_new(33),
+                        RoomCoordinate::unchecked_new(44),
+                        "E1N1",
+                    ),
+                ),
+                (
+                    2491351576u32,
+                    (
+                        RoomCoordinate::unchecked_new(2),
+                        RoomCoordinate::unchecked_new(24),
+                        "E20N0",
+                    ),
+                ),
+                (
+                    2139029504u32,
+                    (
+                        RoomCoordinate::unchecked_new(0),
+                        RoomCoordinate::unchecked_new(0),
+                        "W0N0",
+                    ),
+                ),
+                (
+                    2155806720u32,
+                    (
+                        RoomCoordinate::unchecked_new(0),
+                        RoomCoordinate::unchecked_new(0),
+                        "E0N0",
+                    ),
+                ),
+                (
+                    2139095040u32,
+                    (
+                        RoomCoordinate::unchecked_new(0),
+                        RoomCoordinate::unchecked_new(0),
+                        "W0S0",
+                    ),
+                ),
+                (
+                    2155872256u32,
+                    (
+                        RoomCoordinate::unchecked_new(0),
+                        RoomCoordinate::unchecked_new(0),
+                        "E0S0",
+                    ),
+                ),
+                (
+                    2021333800u32,
+                    (
+                        RoomCoordinate::unchecked_new(27),
+                        RoomCoordinate::unchecked_new(40),
+                        "W7N4",
+                    ),
+                ),
+                // this one is in the top left room - which is either sim, or W127N127 if the
+                // sim position overrides are inactive
+                (
+                    1285u32,
+                    (
+                        RoomCoordinate::unchecked_new(5),
+                        RoomCoordinate::unchecked_new(5),
+                        if cfg!(feature = "sim") {
+                            "sim"
+                        } else {
+                            "W127N127"
+                        },
+                    ),
+                ),
+            ]
+        }
+    }
 
     #[test]
-    fn from_i32_accurate() {
-        for (packed, (x, y, name)) in TEST_POSITIONS.iter().copied() {
+    fn from_u32_accurate() {
+        for (packed, (x, y, name)) in gen_test_positions().iter().copied() {
             let pos = Position::from_packed(packed);
             assert_eq!(pos.x(), x);
             assert_eq!(pos.y(), y);
@@ -491,7 +578,7 @@ mod test {
 
     #[test]
     fn from_args_accurate() {
-        for (packed, (x, y, name)) in TEST_POSITIONS.iter().copied() {
+        for (packed, (x, y, name)) in gen_test_positions().iter().copied() {
             let pos = Position::new(x, y, name.parse().unwrap());
             assert_eq!(pos.packed_repr(), packed);
         }
