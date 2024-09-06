@@ -1,5 +1,5 @@
 use js_sys::{Array, JsString};
-use wasm_bindgen::{prelude::*, JsCast};
+use wasm_bindgen::prelude::*;
 
 use crate::{
     constants::{Direction, ErrorCode, Part, ResourceType},
@@ -11,7 +11,7 @@ use crate::{
     CostMatrix, MoveToOptions, RoomName, RoomPosition,
 };
 
-#[cfg(feature = "thorium")]
+#[cfg(feature = "seasonal-season-5")]
 use crate::objects::Reactor;
 
 #[wasm_bindgen]
@@ -51,7 +51,10 @@ extern "C" {
     fn my_internal(this: &Creep) -> bool;
 
     #[wasm_bindgen(structural, method, getter = name)]
-    fn name_internal(this: &Creep) -> JsString;
+    fn name_internal(this: &Creep) -> String;
+
+    #[wasm_bindgen(structural, method, getter = name)]
+    fn name_jsstring_internal(this: &Creep) -> JsString;
 
     #[wasm_bindgen(structural, method, getter = owner)]
     fn owner_internal(this: &Creep) -> Owner;
@@ -83,7 +86,7 @@ extern "C" {
     #[wasm_bindgen(final, method, js_name = claimController)]
     fn claim_controller_internal(this: &Creep, target: &StructureController) -> i8;
 
-    #[cfg(feature = "thorium")]
+    #[cfg(feature = "seasonal-season-5")]
     #[wasm_bindgen(final, method, js_name = claimReactor)]
     fn claim_reactor_internal(this: &Creep, target: &Reactor) -> i8;
 
@@ -306,7 +309,7 @@ impl Creep {
     /// parts.
     ///
     /// [Screeps documentation](https://docs-season.screeps.com/api/#Creep.claimReactor)
-    #[cfg(feature = "thorium")]
+    #[cfg(feature = "seasonal-season-5")]
     pub fn claim_reactor(&self, target: &Reactor) -> Result<(), ErrorCode> {
         ErrorCode::result_from_i8(self.claim_reactor_internal(target))
     }
@@ -457,8 +460,11 @@ impl Creep {
     /// parts.
     ///
     /// [Screeps documentation](https://docs.screeps.com/api/#Creep.repair)
-    pub fn repair(&self, target: &RoomObject) -> Result<(), ErrorCode> {
-        ErrorCode::result_from_i8(self.repair_internal(target))
+    pub fn repair<T>(&self, target: &T) -> Result<(), ErrorCode>
+    where
+        T: ?Sized + Repairable,
+    {
+        ErrorCode::result_from_i8(self.repair_internal(target.as_ref()))
     }
 
     /// Reserve an unowned [`StructureController`] in melee range using a
@@ -523,8 +529,12 @@ impl HasHits for Creep {
     }
 }
 
-impl MaybeHasNativeId for Creep {
-    fn try_native_id(&self) -> Option<JsString> {
+impl MaybeHasId for Creep {
+    /// The Object ID of the [`Creep`], or `None` if it began spawning this
+    /// tick.
+    ///
+    /// [Screeps documentation](https://docs.screeps.com/api/#Creep.id)
+    fn try_js_raw_id(&self) -> Option<JsString> {
         self.id_internal()
     }
 }
@@ -534,6 +544,10 @@ impl HasStore for Creep {
         self.store()
     }
 }
+
+impl Attackable for Creep {}
+impl Healable for Creep {}
+impl Transferable for Creep {}
 
 impl SharedCreepProperties for Creep {
     fn memory(&self) -> JsValue {
@@ -549,7 +563,11 @@ impl SharedCreepProperties for Creep {
     }
 
     fn name(&self) -> String {
-        self.name_internal().into()
+        self.name_internal()
+    }
+
+    fn name_jsstring(&self) -> JsString {
+        self.name_jsstring_internal()
     }
 
     fn owner(&self) -> Owner {

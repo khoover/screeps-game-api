@@ -199,8 +199,20 @@ pub enum IntershardResourceType {
 
 named_enum_serialize_deserialize!(IntershardResourceType);
 
-/// Translates `RESOURCES_ALL` constant, representing all possible in-game
-/// (non-intershard) resources.
+impl JsCollectionIntoValue for IntershardResourceType {
+    fn into_value(self) -> JsValue {
+        self.into()
+    }
+}
+
+impl JsCollectionFromValue for IntershardResourceType {
+    fn from_value(v: JsValue) -> IntershardResourceType {
+        IntershardResourceType::from_js_value(&v).expect("valid intershard resource type string")
+    }
+}
+
+/// Translates the values of the `RESOURCES_ALL` constant, representing all
+/// possible in-game (non-intershard) resources.
 #[wasm_bindgen]
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Sequence)]
 pub enum ResourceType {
@@ -288,55 +300,55 @@ pub enum ResourceType {
     Spirit = "spirit",
     Emanation = "emanation",
     Essence = "essence",
-    #[cfg(feature = "score")]
+    #[cfg(feature = "seasonal-season-1")]
     Score = "score",
-    #[cfg(feature = "symbols")]
+    #[cfg(feature = "seasonal-season-2")]
     SymbolAleph = "symbol_aleph",
-    #[cfg(feature = "symbols")]
+    #[cfg(feature = "seasonal-season-2")]
     SymbolBeth = "symbol_beth",
-    #[cfg(feature = "symbols")]
+    #[cfg(feature = "seasonal-season-2")]
     SymbolGimmel = "symbol_gimmel",
-    #[cfg(feature = "symbols")]
+    #[cfg(feature = "seasonal-season-2")]
     SymbolDaleth = "symbol_daleth",
-    #[cfg(feature = "symbols")]
+    #[cfg(feature = "seasonal-season-2")]
     SymbolHe = "symbol_he",
-    #[cfg(feature = "symbols")]
+    #[cfg(feature = "seasonal-season-2")]
     SymbolWaw = "symbol_waw",
-    #[cfg(feature = "symbols")]
+    #[cfg(feature = "seasonal-season-2")]
     SymbolZayin = "symbol_zayin",
-    #[cfg(feature = "symbols")]
+    #[cfg(feature = "seasonal-season-2")]
     SymbolHeth = "symbol_heth",
-    #[cfg(feature = "symbols")]
+    #[cfg(feature = "seasonal-season-2")]
     SymbolTeth = "symbol_teth",
-    #[cfg(feature = "symbols")]
+    #[cfg(feature = "seasonal-season-2")]
     SymbolYodh = "symbol_yodh",
-    #[cfg(feature = "symbols")]
+    #[cfg(feature = "seasonal-season-2")]
     SymbolKaph = "symbol_kaph",
-    #[cfg(feature = "symbols")]
+    #[cfg(feature = "seasonal-season-2")]
     SymbolLamedh = "symbol_lamedh",
-    #[cfg(feature = "symbols")]
+    #[cfg(feature = "seasonal-season-2")]
     SymbolMem = "symbol_mem",
-    #[cfg(feature = "symbols")]
+    #[cfg(feature = "seasonal-season-2")]
     SymbolNun = "symbol_nun",
-    #[cfg(feature = "symbols")]
+    #[cfg(feature = "seasonal-season-2")]
     SymbolSamekh = "symbol_samekh",
-    #[cfg(feature = "symbols")]
+    #[cfg(feature = "seasonal-season-2")]
     SymbolAyin = "symbol_ayin",
-    #[cfg(feature = "symbols")]
+    #[cfg(feature = "seasonal-season-2")]
     SymbolPe = "symbol_pe",
-    #[cfg(feature = "symbols")]
+    #[cfg(feature = "seasonal-season-2")]
     SymbolTsade = "symbol_tsade",
-    #[cfg(feature = "symbols")]
+    #[cfg(feature = "seasonal-season-2")]
     SymbolQoph = "symbol_qoph",
-    #[cfg(feature = "symbols")]
+    #[cfg(feature = "seasonal-season-2")]
     SymbolRes = "symbol_res",
     // sin/sim mismatch is intended here - see official mod:
     // https://github.com/screeps/mod-season2/blob/3dfaa8f6214b2610dbe2a700c6287a10e7960ae8/src/resources.js#L23
-    #[cfg(feature = "symbols")]
+    #[cfg(feature = "seasonal-season-2")]
     SymbolSin = "symbol_sim",
-    #[cfg(feature = "symbols")]
+    #[cfg(feature = "seasonal-season-2")]
     SymbolTaw = "symbol_taw",
-    #[cfg(feature = "thorium")]
+    #[cfg(feature = "seasonal-season-5")]
     Thorium = "T",
 }
 
@@ -485,6 +497,146 @@ impl ResourceType {
     }
 }
 
+/// A collection of all resource types. This is a direct translation of the
+/// `RESOURCES_ALL` constant in game using the rust `ResourceType` enum.
+///
+/// Feature-specific resources are included in this list when the appropriate
+/// feature is enabled.
+pub const RESOURCES_ALL: &[ResourceType] = &[
+    ResourceType::Power,
+    ResourceType::Energy,
+    ResourceType::Hydrogen,
+    ResourceType::Oxygen,
+    ResourceType::Utrium,
+    ResourceType::Lemergium,
+    ResourceType::Keanium,
+    ResourceType::Zynthium,
+    ResourceType::Catalyst,
+    ResourceType::Ghodium,
+    ResourceType::Silicon,
+    ResourceType::Metal,
+    ResourceType::Biomass,
+    ResourceType::Mist,
+    ResourceType::Hydroxide,
+    ResourceType::ZynthiumKeanite,
+    ResourceType::UtriumLemergite,
+    ResourceType::UtriumHydride,
+    ResourceType::UtriumOxide,
+    ResourceType::KeaniumHydride,
+    ResourceType::KeaniumOxide,
+    ResourceType::LemergiumHydride,
+    ResourceType::LemergiumOxide,
+    ResourceType::ZynthiumHydride,
+    ResourceType::ZynthiumOxide,
+    ResourceType::GhodiumHydride,
+    ResourceType::GhodiumOxide,
+    ResourceType::UtriumAcid,
+    ResourceType::UtriumAlkalide,
+    ResourceType::KeaniumAcid,
+    ResourceType::KeaniumAlkalide,
+    ResourceType::LemergiumAcid,
+    ResourceType::LemergiumAlkalide,
+    ResourceType::ZynthiumAcid,
+    ResourceType::ZynthiumAlkalide,
+    ResourceType::GhodiumAcid,
+    ResourceType::GhodiumAlkalide,
+    ResourceType::CatalyzedUtriumAcid,
+    ResourceType::CatalyzedUtriumAlkalide,
+    ResourceType::CatalyzedKeaniumAcid,
+    ResourceType::CatalyzedKeaniumAlkalide,
+    ResourceType::CatalyzedLemergiumAcid,
+    ResourceType::CatalyzedLemergiumAlkalide,
+    ResourceType::CatalyzedZynthiumAcid,
+    ResourceType::CatalyzedZynthiumAlkalide,
+    ResourceType::CatalyzedGhodiumAcid,
+    ResourceType::CatalyzedGhodiumAlkalide,
+    ResourceType::Ops,
+    ResourceType::UtriumBar,
+    ResourceType::LemergiumBar,
+    ResourceType::ZynthiumBar,
+    ResourceType::KeaniumBar,
+    ResourceType::GhodiumMelt,
+    ResourceType::Oxidant,
+    ResourceType::Reductant,
+    ResourceType::Purifier,
+    ResourceType::Battery,
+    ResourceType::Composite,
+    ResourceType::Crystal,
+    ResourceType::Liquid,
+    ResourceType::Wire,
+    ResourceType::Switch,
+    ResourceType::Transistor,
+    ResourceType::Microchip,
+    ResourceType::Circuit,
+    ResourceType::Device,
+    ResourceType::Cell,
+    ResourceType::Phlegm,
+    ResourceType::Tissue,
+    ResourceType::Muscle,
+    ResourceType::Organoid,
+    ResourceType::Organism,
+    ResourceType::Alloy,
+    ResourceType::Tube,
+    ResourceType::Fixtures,
+    ResourceType::Frame,
+    ResourceType::Hydraulics,
+    ResourceType::Machine,
+    ResourceType::Condensate,
+    ResourceType::Concentrate,
+    ResourceType::Extract,
+    ResourceType::Spirit,
+    ResourceType::Emanation,
+    ResourceType::Essence,
+    #[cfg(feature = "seasonal-season-1")]
+    ResourceType::Score,
+    #[cfg(feature = "seasonal-season-2")]
+    ResourceType::SymbolAleph,
+    #[cfg(feature = "seasonal-season-2")]
+    ResourceType::SymbolBeth,
+    #[cfg(feature = "seasonal-season-2")]
+    ResourceType::SymbolGimmel,
+    #[cfg(feature = "seasonal-season-2")]
+    ResourceType::SymbolDaleth,
+    #[cfg(feature = "seasonal-season-2")]
+    ResourceType::SymbolHe,
+    #[cfg(feature = "seasonal-season-2")]
+    ResourceType::SymbolWaw,
+    #[cfg(feature = "seasonal-season-2")]
+    ResourceType::SymbolZayin,
+    #[cfg(feature = "seasonal-season-2")]
+    ResourceType::SymbolHeth,
+    #[cfg(feature = "seasonal-season-2")]
+    ResourceType::SymbolTeth,
+    #[cfg(feature = "seasonal-season-2")]
+    ResourceType::SymbolYodh,
+    #[cfg(feature = "seasonal-season-2")]
+    ResourceType::SymbolKaph,
+    #[cfg(feature = "seasonal-season-2")]
+    ResourceType::SymbolLamedh,
+    #[cfg(feature = "seasonal-season-2")]
+    ResourceType::SymbolMem,
+    #[cfg(feature = "seasonal-season-2")]
+    ResourceType::SymbolNun,
+    #[cfg(feature = "seasonal-season-2")]
+    ResourceType::SymbolSamekh,
+    #[cfg(feature = "seasonal-season-2")]
+    ResourceType::SymbolAyin,
+    #[cfg(feature = "seasonal-season-2")]
+    ResourceType::SymbolPe,
+    #[cfg(feature = "seasonal-season-2")]
+    ResourceType::SymbolTsade,
+    #[cfg(feature = "seasonal-season-2")]
+    ResourceType::SymbolQoph,
+    #[cfg(feature = "seasonal-season-2")]
+    ResourceType::SymbolRes,
+    #[cfg(feature = "seasonal-season-2")]
+    ResourceType::SymbolSin,
+    #[cfg(feature = "seasonal-season-2")]
+    ResourceType::SymbolTaw,
+    #[cfg(feature = "seasonal-season-5")]
+    ResourceType::Thorium,
+];
+
 /// Returned values from [`ResourceType::boost`] representing the effect of
 /// boosting a creep with the given resource.
 #[derive(Copy, Clone, Debug)]
@@ -522,7 +674,7 @@ impl wasm_bindgen::convert::FromWasmAbi for MarketResourceType {
                 // try with IntershardResourceType
                 match IntershardResourceType::from_js_value(&s) {
                     Some(r) => Self::IntershardResource(r),
-                    None => Self::Resource(ResourceType::__Nonexhaustive),
+                    None => unreachable!("should have come from IntoWasmAbi"),
                 }
             }
         }
@@ -682,7 +834,7 @@ mod test {
     #[test]
     fn resources_rust_to_serde_json_from_serde_json_roundtrip() {
         for resource in enum_iterator::all::<ResourceType>() {
-            if resource != ResourceType::__Nonexhaustive {
+            if resource != ResourceType::__Invalid {
                 let serialized = serde_json::to_string(&resource).unwrap();
                 let parsed: ResourceType = serde_json::from_str(&serialized).unwrap();
                 assert_eq!(resource, parsed);
@@ -693,7 +845,7 @@ mod test {
     #[test]
     fn resources_rust_to_display_from_str_roundtrip() {
         for resource in enum_iterator::all::<ResourceType>() {
-            if resource != ResourceType::__Nonexhaustive {
+            if resource != ResourceType::__Invalid {
                 let string = format!("{}", resource);
                 let parsed = ResourceType::from_str(&string).unwrap();
                 assert_eq!(resource, parsed);
@@ -705,7 +857,7 @@ mod test {
     fn resources_rust_vec_to_serde_json_from_serde_json_roundtrip() {
         let mut resources = vec![];
         for resource in enum_iterator::all::<ResourceType>() {
-            if resource != ResourceType::__Nonexhaustive {
+            if resource != ResourceType::__Invalid {
                 resources.push(resource);
             }
         }
@@ -718,7 +870,7 @@ mod test {
     fn resources_rust_vec_to_serde_json_from_serde_json_roundtrip_via_values() {
         let mut resources = vec![];
         for resource in enum_iterator::all::<ResourceType>() {
-            if resource != ResourceType::__Nonexhaustive {
+            if resource != ResourceType::__Invalid {
                 resources.push(resource);
             }
         }
@@ -735,7 +887,7 @@ mod test {
     #[test]
     fn intershard_resources_rust_to_serde_json_from_serde_json_roundtrip() {
         for resource in enum_iterator::all::<IntershardResourceType>() {
-            if resource != IntershardResourceType::__Nonexhaustive {
+            if resource != IntershardResourceType::__Invalid {
                 let serialized = serde_json::to_string(&resource).unwrap();
                 let parsed: IntershardResourceType = serde_json::from_str(&serialized).unwrap();
                 assert_eq!(resource, parsed);
@@ -746,7 +898,7 @@ mod test {
     #[test]
     fn intershard_resources_rust_to_display_from_str_roundtrip() {
         for resource in enum_iterator::all::<IntershardResourceType>() {
-            if resource != IntershardResourceType::__Nonexhaustive {
+            if resource != IntershardResourceType::__Invalid {
                 let string = format!("{}", resource);
                 let parsed = IntershardResourceType::from_str(&string).unwrap();
                 assert_eq!(resource, parsed);
@@ -758,7 +910,7 @@ mod test {
     fn intershard_resources_rust_vec_to_serde_json_from_serde_json_roundtrip() {
         let mut resources = vec![];
         for resource in enum_iterator::all::<IntershardResourceType>() {
-            if resource != IntershardResourceType::__Nonexhaustive {
+            if resource != IntershardResourceType::__Invalid {
                 resources.push(resource);
             }
         }
@@ -772,7 +924,7 @@ mod test {
     fn intershard_resources_rust_vec_to_serde_json_from_serde_json_roundtrip_via_values() {
         let mut resources = vec![];
         for resource in enum_iterator::all::<IntershardResourceType>() {
-            if resource != IntershardResourceType::__Nonexhaustive {
+            if resource != IntershardResourceType::__Invalid {
                 resources.push(resource);
             }
         }
@@ -789,11 +941,9 @@ mod test {
     #[test]
     fn market_resources_rust_to_serde_json_from_serde_json_roundtrip() {
         for resource in enum_iterator::all::<MarketResourceType>() {
-            if resource != MarketResourceType::Resource(ResourceType::__Nonexhaustive)
+            if resource != MarketResourceType::Resource(ResourceType::__Invalid)
                 && resource
-                    != MarketResourceType::IntershardResource(
-                        IntershardResourceType::__Nonexhaustive,
-                    )
+                    != MarketResourceType::IntershardResource(IntershardResourceType::__Invalid)
             {
                 let serialized = serde_json::to_string(&resource).unwrap();
                 let parsed: MarketResourceType = serde_json::from_str(&serialized).unwrap();
@@ -806,11 +956,9 @@ mod test {
     fn market_resources_rust_vec_to_serde_json_from_serde_json_roundtrip() {
         let mut resources = vec![];
         for resource in enum_iterator::all::<MarketResourceType>() {
-            if resource != MarketResourceType::Resource(ResourceType::__Nonexhaustive)
+            if resource != MarketResourceType::Resource(ResourceType::__Invalid)
                 && resource
-                    != MarketResourceType::IntershardResource(
-                        IntershardResourceType::__Nonexhaustive,
-                    )
+                    != MarketResourceType::IntershardResource(IntershardResourceType::__Invalid)
             {
                 resources.push(resource);
             }
@@ -825,11 +973,9 @@ mod test {
     fn market_resources_rust_vec_to_serde_json_from_serde_json_roundtrip_via_values() {
         let mut resources = vec![];
         for resource in enum_iterator::all::<MarketResourceType>() {
-            if resource != MarketResourceType::Resource(ResourceType::__Nonexhaustive)
+            if resource != MarketResourceType::Resource(ResourceType::__Invalid)
                 && resource
-                    != MarketResourceType::IntershardResource(
-                        IntershardResourceType::__Nonexhaustive,
-                    )
+                    != MarketResourceType::IntershardResource(IntershardResourceType::__Invalid)
             {
                 resources.push(resource);
             }

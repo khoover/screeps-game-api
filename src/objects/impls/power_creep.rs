@@ -1,5 +1,7 @@
+use std::{error::Error, fmt};
+
 use js_sys::{JsString, Object};
-use wasm_bindgen::{prelude::*, JsCast};
+use wasm_bindgen::prelude::*;
 
 use crate::{
     constants::{Direction, ErrorCode, PowerCreepClass, PowerType, ResourceType},
@@ -49,7 +51,10 @@ extern "C" {
     fn my_internal(this: &PowerCreep) -> bool;
 
     #[wasm_bindgen(method, getter = name)]
-    fn name_internal(this: &PowerCreep) -> JsString;
+    fn name_internal(this: &PowerCreep) -> String;
+
+    #[wasm_bindgen(method, getter = name)]
+    fn name_jsstring_internal(this: &PowerCreep) -> JsString;
 
     #[wasm_bindgen(method, getter = owner)]
     fn owner_internal(this: &PowerCreep) -> Owner;
@@ -329,8 +334,8 @@ impl HasHits for PowerCreep {
     }
 }
 
-impl HasNativeId for PowerCreep {
-    fn native_id(&self) -> JsString {
+impl HasId for PowerCreep {
+    fn js_raw_id(&self) -> JsString {
         self.id_internal()
     }
 }
@@ -341,8 +346,9 @@ impl HasStore for PowerCreep {
     }
 }
 
-// todo
-// impl TryFrom<AccountPowerCreep> for PowerCreep
+impl Attackable for PowerCreep {}
+impl Healable for PowerCreep {}
+impl Transferable for PowerCreep {}
 
 impl SharedCreepProperties for PowerCreep {
     fn memory(&self) -> JsValue {
@@ -358,7 +364,11 @@ impl SharedCreepProperties for PowerCreep {
     }
 
     fn name(&self) -> String {
-        self.name_internal().into()
+        self.name_internal()
+    }
+
+    fn name_jsstring(&self) -> JsString {
+        self.name_jsstring_internal()
     }
 
     fn owner(&self) -> Owner {
@@ -467,6 +477,9 @@ extern "C" {
     #[derive(Clone, Debug)]
     pub type AccountPowerCreep;
 
+    #[wasm_bindgen(method, getter = id)]
+    fn id_internal(this: &AccountPowerCreep) -> Option<JsString>;
+
     #[wasm_bindgen(method, getter = className)]
     fn class_internal(this: &AccountPowerCreep) -> PowerCreepClass;
 
@@ -477,7 +490,10 @@ extern "C" {
     fn level_internal(this: &AccountPowerCreep) -> u32;
 
     #[wasm_bindgen(method, getter = name)]
-    fn name_internal(this: &AccountPowerCreep) -> JsString;
+    fn name_internal(this: &AccountPowerCreep) -> String;
+
+    #[wasm_bindgen(method, getter = name)]
+    fn name_jsstring_internal(this: &AccountPowerCreep) -> JsString;
 
     #[wasm_bindgen(method, getter = powers)]
     fn powers_internal(this: &AccountPowerCreep) -> Object;
@@ -525,6 +541,20 @@ impl AccountPowerCreep {
     /// [Screeps documentation](https://docs.screeps.com/api/#PowerCreep.level)
     pub fn level(&self) -> u32 {
         self.level_internal()
+    }
+
+    /// The power creep's name as a [`String`].
+    ///
+    /// [Screeps documentation](https://docs.screeps.com/api/#PowerCreep.name)
+    pub fn name(&self) -> String {
+        self.name_internal()
+    }
+
+    /// The power creep's name as a [`JsString`].
+    ///
+    /// [Screeps documentation](https://docs.screeps.com/api/#PowerCreep.name)
+    pub fn name_jsstring(&self) -> JsString {
+        self.name_jsstring_internal()
     }
 
     /// The levels of this power creep's abilities, with [`PowerType`] keys and
@@ -585,6 +615,40 @@ impl AccountPowerCreep {
 impl JsCollectionFromValue for AccountPowerCreep {
     fn from_value(val: JsValue) -> Self {
         val.unchecked_into()
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct PowerCreepNotSpawned {}
+
+impl fmt::Display for PowerCreepNotSpawned {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "PowerCreep not currently spawned")
+    }
+}
+
+impl Error for PowerCreepNotSpawned {}
+
+impl TryFrom<AccountPowerCreep> for PowerCreep {
+    type Error = PowerCreepNotSpawned;
+
+    fn try_from(account_power_creep: AccountPowerCreep) -> Result<Self, Self::Error> {
+        account_power_creep
+            .id_internal()
+            .map(|_| account_power_creep.unchecked_into())
+            .ok_or(PowerCreepNotSpawned {})
+    }
+}
+
+impl AsRef<AccountPowerCreep> for PowerCreep {
+    fn as_ref(&self) -> &AccountPowerCreep {
+        self.unchecked_ref()
+    }
+}
+
+impl From<PowerCreep> for AccountPowerCreep {
+    fn from(power_creep: PowerCreep) -> Self {
+        power_creep.unchecked_into()
     }
 }
 

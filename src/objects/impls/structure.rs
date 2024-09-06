@@ -17,21 +17,11 @@ extern "C" {
     #[derive(Clone, Debug)]
     pub type Structure;
 
-    /// Retrieve the current hits of this structure, or `0` if this structure is
-    /// indestructible, such as a notice area border wall, portal, or room
-    /// controller.
-    ///
-    /// [Screeps documentation](https://docs.screeps.com/api/#Structure.hits)
-    #[wasm_bindgen(method, getter)]
-    pub fn hits(this: &Structure) -> u32;
+    #[wasm_bindgen(method, getter = hits)]
+    fn hits_internal(this: &Structure) -> Option<u32>;
 
-    /// Retrieve the maximum hits of this structure, or `0` if this structure is
-    /// indestructible, such as a notice area border wall, portal, or room
-    /// controller.
-    ///
-    /// [Screeps documentation](https://docs.screeps.com/api/#Structure.hitsMax)
     #[wasm_bindgen(method, getter = hitsMax)]
-    pub fn hits_max(this: &Structure) -> u32;
+    fn hits_max_internal(this: &Structure) -> Option<u32>;
 
     /// Object ID of the structure, which can be used to efficiently fetch a
     /// fresh reference to the object on subsequent ticks.
@@ -46,11 +36,8 @@ extern "C" {
     #[wasm_bindgen(method, getter = structureType)]
     pub fn structure_type(this: &Structure) -> StructureType;
 
-    /// Destroy the structure, if possible.
-    ///
-    /// [Screeps documentation](https://docs.screeps.com/api/#Structure.destroy)
-    #[wasm_bindgen(method)]
-    pub fn destroy(this: &Structure) -> i8;
+    #[wasm_bindgen(method, js_name = destroy)]
+    fn destroy_internal(this: &Structure) -> i8;
 
     /// Determine if the structure is active and can be used at the current RCL.
     ///
@@ -66,11 +53,38 @@ extern "C" {
     pub fn notify_when_attacked(this: &Structure, val: bool) -> i8;
 }
 
-impl<T> HasNativeId for T
+impl Structure {
+    /// Retrieve the current hits of this structure, or `0` if this structure is
+    /// indestructible, such as a notice area border wall, portal, or room
+    /// controller.
+    ///
+    /// [Screeps documentation](https://docs.screeps.com/api/#Structure.hits)
+    pub fn hits(&self) -> u32 {
+        self.hits_internal().unwrap_or(0)
+    }
+
+    /// Retrieve the maximum hits of this structure, or `0` if this structure is
+    /// indestructible, such as a notice area border wall, portal, or room
+    /// controller.
+    ///
+    /// [Screeps documentation](https://docs.screeps.com/api/#Structure.hitsMax)
+    pub fn hits_max(&self) -> u32 {
+        self.hits_max_internal().unwrap_or(0)
+    }
+
+    /// Destroy the structure, if possible.
+    ///
+    /// [Screeps documentation](https://docs.screeps.com/api/#Structure.destroy)
+    pub fn destroy(&self) -> Result<(), ErrorCode> {
+        ErrorCode::result_from_i8(self.destroy_internal())
+    }
+}
+
+impl<T> HasId for T
 where
-    T: AsRef<Structure>,
+    T: AsRef<Structure> + JsCast,
 {
-    fn native_id(&self) -> JsString {
+    fn js_raw_id(&self) -> JsString {
         Structure::id_internal(self.as_ref())
     }
 }
@@ -97,7 +111,7 @@ where
     }
 
     fn destroy(&self) -> Result<(), ErrorCode> {
-        ErrorCode::result_from_i8(Structure::destroy(self.as_ref()))
+        Structure::destroy(self.as_ref())
     }
 
     fn is_active(&self) -> bool {

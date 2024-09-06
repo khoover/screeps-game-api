@@ -9,7 +9,7 @@
 ///
 /// [`Resource`]: crate::objects::Resource
 /// [`ConstructionSite::remove`]: crate::objects::ConstructionSite::remove
-pub const CONSTRUCTION_SITE_STOMP_RATIO: f32 = 0.5;
+pub const CONSTRUCTION_SITE_DROP_RATIO: f32 = 0.5;
 
 /// Maximum length (in UTF-16 units) of input to [`Creep::sign_controller`]
 ///
@@ -17,6 +17,15 @@ pub const CONSTRUCTION_SITE_STOMP_RATIO: f32 = 0.5;
 ///
 /// [`Creep::sign_controller`]: crate::objects::Creep::sign_controller
 pub const CONTROLLER_SIGN_MAX_LENGTH: u32 = 100;
+
+/// Percentage of progress toward next level controllers retain when downgraded
+///
+/// After a downgrade, the controller loses its previous progress toward the
+/// next level, and has its progress set to 90% of the amount needed to upgrade
+/// back to the level that it just downgraded from.
+///
+/// [Code reference](https://github.com/screeps/engine/blob/97c9d12385fed686655c13b09f5f2457dd83a2bf/src/processor/intents/controllers/tick.js#L66)
+pub const CONTROLLER_DOWNGRADE_PROGRESS_RATIO: f32 = 0.9;
 
 /// Maximum amount of CPU that can be accumulated in [`game::cpu::bucket`] per
 /// shard
@@ -80,9 +89,12 @@ pub const CREEP_SAY_MAX_LENGTH: u32 = 10;
 /// [`Flag`]: crate::objects::Flag
 pub const FLAG_NAME_MAX_LENGTH: u32 = 100;
 
-/// The cost of a single 'intent' (in milliseconds), a CPU penalty charged for
-/// most successful API calls which change the game state ([`Creep::pull`],
-/// [`Creep::say`], and [`PowerCreep::say`] are excepted)
+/// The cost of a single 'intent' in CPU time, charged for all successful
+/// changes to game state.
+///
+/// API calls which change the game state ([`Creep::pull`], [`Creep::say`], and
+/// [`PowerCreep::say`] are excepted) will add this amount to your used CPU for
+/// the tick each time they're successful.
 ///
 /// [Code reference](https://github.com/screeps/driver/blob/97a9e51d124c7170429caa1621096f0f4d888d72/lib/runtime/runtime.js#L52)
 ///
@@ -156,12 +168,42 @@ pub const MEMORY_SEGMENT_ACTIVE_LIMIT: u32 = 10;
 /// [`raw_memory::set`]: crate::raw_memory::set
 pub const MEMORY_SIZE_LIMIT: u32 = 2 * 1024 * 1024;
 
+/// Fatigue points added for each body part that generates fatigue when stepping
+/// onto a tile with a [`StructureRoad`]
+///
+/// [`StructureRoad`]: crate::objects::StructureRoad
+pub const MOVE_COST_ROAD: u32 = 1;
+
+/// Fatigue points added for each body part that generates fatigue when stepping
+/// onto a tile with [`Terrain::Plain`]
+///
+/// [`Terrain::Plain`]: crate::constants::Terrain::Plain
+pub const MOVE_COST_PLAIN: u32 = 2;
+
+/// Fatigue points added for each body part that generates fatigue when stepping
+/// onto a tile with [`Terrain::Swamp`]
+///
+/// [`Terrain::Swamp`]: crate::constants::Terrain::Swamp
+pub const MOVE_COST_SWAMP: u32 = 10;
+
 /// Fatigue points removed per effective [`Part::Move`] per tick
 ///
 /// [Code reference](https://github.com/screeps/engine/blob/c6c4fc9e656f160e0e0174b0dd9a817d2dd18976/src/processor/intents/movement.js#L204)
 ///
 /// [`Part::Move`]: crate::constants::Part::Move
 pub const MOVE_POWER: u32 = 2;
+
+/// Maximum length (in UTF-16 units) of message content sent to
+/// [`game::notify`].
+///
+/// Note that the official documentation reflects a limit of 1000, but a limit
+/// of 500 is enforced in the driver (truncating to that length if a longer
+/// string is input).
+///
+/// [Code reference](https://github.com/screeps/driver/blob/e691bd3ee843cb12ac4bedc68397b2b92709f622/lib/index.js#L208)
+///
+/// [`game::notify`]: crate::game::notify
+pub const NOTIFY_MAX_LENGTH: u32 = 500;
 
 /// Maximum carry capacity of a [`PowerCreep`] per level
 ///
@@ -227,6 +269,11 @@ pub const ROOM_VISUAL_PER_ROOM_SIZE_LIMIT: u32 = 500 * 1024;
 ///
 /// [`Room`]: crate::objects::Room
 pub const ROOM_SIZE: u8 = 50;
+
+/// The number of total tiles in each [`Room`] in the game
+///
+/// [`Room`]: crate::objects::Room
+pub const ROOM_AREA: usize = (ROOM_SIZE as usize) * (ROOM_SIZE as usize);
 
 /// Owner username of hostile non-player structures and creeps which occupy
 /// sector center rooms.

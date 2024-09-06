@@ -1,13 +1,8 @@
 //! Typed JavaScript collection wrappers.
-use std::{
-    cmp::{Eq, PartialEq},
-    fmt,
-    marker::PhantomData,
-    str::FromStr,
-};
+use std::{fmt, marker::PhantomData, str::FromStr};
 
 use js_sys::{Array, JsString, Object};
-use wasm_bindgen::{prelude::*, JsCast};
+use wasm_bindgen::prelude::*;
 
 use crate::{game, local::RawObjectIdParseError, prelude::*};
 
@@ -35,6 +30,8 @@ pub trait JsCollectionFromValue {
     fn from_value(val: JsValue) -> Self;
 }
 
+/// Container holding a reference to an [`Object`] in JavaScript as well as
+/// expected types for both the keys and values.
 pub struct JsHashMap<K, V> {
     map: Object,
     _phantom: PhantomData<(K, V)>,
@@ -57,6 +54,18 @@ where
 {
     pub fn values(&self) -> impl Iterator<Item = V> {
         let array = Object::values(self.map.unchecked_ref());
+
+        OwnedArrayIter::new(array)
+    }
+}
+
+impl<K, V> JsHashMap<K, V>
+where
+    K: JsCollectionFromValue,
+    V: JsCollectionFromValue,
+{
+    pub fn entries(&self) -> impl Iterator<Item = (K, V)> {
+        let array = Object::entries(self.map.unchecked_ref());
 
         OwnedArrayIter::new(array)
     }
@@ -161,16 +170,19 @@ impl<T> std::iter::FusedIterator for OwnedArrayIter<T> where T: JsCollectionFrom
 
 impl<T> std::iter::ExactSizeIterator for OwnedArrayIter<T> where T: JsCollectionFromValue {}
 
-/// Represents a reference to an Object ID string held on the javascript heap
-/// and a type that the ID points to.
+/// Represents a reference to an Object ID string in JavaScript memory, typed
+/// according to the object type Rust expects for the object after resolving.
 ///
-/// This representation is less useful on the Rust side due to lack of
-/// visibility on the underlying string and lack of most trait implementations,
-/// and consumes more memory, but is faster to resolve and may be useful with
-/// objects you plan to resolve frequently.
+/// Use [`ObjectId`] if a value stored in Rust memory is preferred; the
+/// JavaScript representation can be harder to work with in Rust code due to
+/// lack of visibility on the underlying string and lack of most trait
+/// implementations, and consumes more memory, but is faster to resolve and may
+/// be useful with objects you plan to resolve frequently.
 ///
 /// This object ID is typed, but not strictly, and can be converted into
 /// referring into another type of object with [`JsObjectId::into_type`].
+///
+/// [`ObjectId`]: crate::local::ObjectId
 // Copy, Clone, Debug, PartialEq, Eq, Hash, PartialEq, Eq implemented manually
 // below
 pub struct JsObjectId<T> {
@@ -236,7 +248,7 @@ impl<T> JsObjectId<T> {
     /// don't have vision for.
     pub fn resolve(&self) -> Option<T>
     where
-        T: Resolvable,
+        T: MaybeHasId + JsCast,
     {
         game::get_object_by_js_id_typed(self)
     }
@@ -305,5 +317,34 @@ impl JsCollectionFromValue for u8 {
         } else {
             val.as_f64().expect("expected number value") as u8
         }
+    }
+}
+
+impl JsCollectionIntoValue for u32 {
+    fn into_value(self) -> JsValue {
+        JsValue::from_f64(self as f64)
+    }
+}
+
+impl JsCollectionFromValue for u32 {
+    fn from_value(val: JsValue) -> u32 {
+        if let Some(val) = val.as_string() {
+            val.parse::<u32>().expect("expected parseable u32 string")
+        } else {
+            val.as_f64().expect("expected number value") as u32
+        }
+    }
+}
+
+impl<K, V> JsCollectionFromValue for (K, V)
+where
+    K: JsCollectionFromValue,
+    V: JsCollectionFromValue,
+{
+    fn from_value(val: JsValue) -> Self {
+        let val: &Array = val.dyn_ref().expect("expected tuple of length 2");
+        let k = K::from_value(val.get(0));
+        let v = V::from_value(val.get(1));
+        (k, v)
     }
 }

@@ -154,7 +154,8 @@ pub const CREEP_SPAWN_TIME: u32 = 3;
 /// Quoting from [`StructureSpawn.renewCreep`] documentation:
 ///
 /// > Each execution increases the creep's timer by amount of ticks according to
-/// this formula:
+/// > this formula:
+/// >
 /// > `floor(600/body_size)`
 /// >
 /// > Energy required for each execution is determined using this formula:
@@ -323,14 +324,14 @@ pub const CONTROLLER_DOWNGRADE_RESTORE: u32 = 100;
 ///
 /// Quoting from the [3.2.0 patch notes](https://blog.screeps.com/2018/12/changelog-2018-12-14/):
 ///
-/// > * When the controller gains or loses one level, its downgrade timer is set
-/// to 50% instead of 100%.
-/// > * Safe mode activation unavailable period starts from this 50% point minus
-/// 5000 ticks.
+/// * When the controller gains or loses one level, its downgrade timer is set
+///   to 50% instead of 100%.
+/// * Safe mode activation unavailable period starts from this 50% point minus
+///   5000 ticks.
 ///
-/// For example, a newly upgraded RCL7 room will have 75_000 ticks to downgrade
-/// out of its 150_000 maximum, and safe mode becomes unavailable if the timer
-/// falls below 70_000 ticks.
+/// For example, a newly upgraded RCL7 room will have 75,000 ticks to downgrade
+/// out of its 150,000 maximum, and safe mode becomes unavailable if the timer
+/// falls below 70,000 ticks.
 ///
 /// [`StructureController::ticks_to_downgrade`]:
 /// crate::objects::StructureController::ticks_to_downgrade
@@ -398,10 +399,10 @@ pub const TOWER_POWER_HEAL: u32 = 400;
 pub const TOWER_POWER_REPAIR: u32 = 800;
 /// Tower actions at a range beyond this distance suffer falloff penalties - see
 /// [`TOWER_FALLOFF`].
-pub const TOWER_OPTIMAL_RANGE: u32 = 5;
+pub const TOWER_OPTIMAL_RANGE: u8 = 5;
 /// Tower actions at a range greater than or equal to this distance suffer the
 /// maxium falloff penalties - see [`TOWER_FALLOFF`].
-pub const TOWER_FALLOFF_RANGE: u32 = 20;
+pub const TOWER_FALLOFF_RANGE: u8 = 20;
 /// Maximum percentage reduction in healing, repair, and attack effectiveness
 /// for towers due to range.
 ///
@@ -415,7 +416,7 @@ pub const TOWER_FALLOFF_RANGE: u32 = 20;
 /// ```
 ///
 /// [source]: https://github.com/screeps/engine/blob/f02d16a44a00c35615ae227fc72a3c9a07a6a39a/src/processor/intents/towers/attack.js#L38
-pub const TOWER_FALLOFF: f32 = 0.75;
+pub const TOWER_FALLOFF: f64 = 0.75;
 
 /// Initial hits for observer structures; consider using the
 /// [`StructureType::initial_hits`] function.
@@ -504,16 +505,8 @@ pub const LAB_UNBOOST_MINERAL: u32 = 15;
 
 /// Exponential growth rate of control points needed per global control level
 /// (GCL).
-///
-/// See [`control_points_for_gcl`] function to calculate for each level
-///
-/// [`control_points_for_gcl`]: crate::constants::math::control_points_for_gcl
 pub const GCL_POW: f64 = 2.4;
 /// Base growth rate of control points needed per global control level (GCL).
-///
-/// See [`control_points_for_gcl`] function to calculate for each level
-///
-/// [`control_points_for_gcl`]: crate::constants::math::control_points_for_gcl
 pub const GCL_MULTIPLY: u32 = 1_000_000;
 /// Maximum GCL for players allowed to spawn in a Novice area.
 pub const GCL_NOVICE: u32 = 3;
@@ -740,17 +733,9 @@ pub const SIGN_PLANNED_AREA: &str = "A new Novice or Respawn Area is being plann
 // EVENT_* constants in src/objects/impls/room.rs
 
 /// Base growth rate of processed power needed per global power level (GPL).
-///
-/// See [`power_for_gpl`] function to calculate for each level
-///
-/// [`power_for_gpl`]: crate::constants::math::power_for_gpl
 pub const POWER_LEVEL_MULTIPLY: u32 = 1000;
 /// Exponential growth rate of processed power needed per global power level
 /// (GPL).
-///
-/// See [`power_for_gpl`] function to calculate for each level
-///
-/// [`power_for_gpl`]: crate::constants::math::power_for_gpl
 pub const POWER_LEVEL_POW: u32 = 2;
 /// Time, in milliseconds, that a power creep must wait to respawn after dying.
 pub const POWER_CREEP_SPAWN_COOLDOWN: u32 = 8 * 3600 * 1000;

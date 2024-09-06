@@ -1,8 +1,6 @@
-use std::convert::TryInto;
-
 use js_sys::{Array, JsString, Object};
 use num_traits::*;
-use wasm_bindgen::{prelude::*, JsCast};
+use wasm_bindgen::prelude::*;
 
 use crate::{
     constants::{find::*, look::*, Color, Direction, ErrorCode, StructureType},
@@ -15,7 +13,10 @@ use crate::{
 
 #[wasm_bindgen]
 extern "C" {
-    /// An object representing a position in a room.
+    /// An object representing a position in a room, stored in JavaScript
+    /// memory.
+    ///
+    /// Use [`Position`] to store and access the same data in Rust memory.
     ///
     /// [Screeps documentation](https://docs.screeps.com/api/#RoomPosition)
     pub type RoomPosition;

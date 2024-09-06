@@ -1,5 +1,5 @@
 use std::{
-    cmp::{Eq, Ord, Ordering, PartialEq, PartialOrd},
+    cmp::Ordering,
     fmt,
     hash::{Hash, Hasher},
     marker::PhantomData,
@@ -7,10 +7,11 @@ use std::{
 };
 
 use arrayvec::ArrayString;
+use js_sys::JsString;
 use serde::{Deserialize, Serialize};
-use wasm_bindgen::JsCast;
+use wasm_bindgen::{JsCast, JsValue};
 
-use crate::{game, Resolvable, RoomObject};
+use crate::{game, js_collections::JsCollectionFromValue, objects::RoomObject, traits::MaybeHasId};
 
 mod errors;
 mod raw;
@@ -18,18 +19,16 @@ mod raw;
 pub use errors::*;
 pub use raw::*;
 
-/// Represents an Object ID and a type that the ID points to.
+/// Represents an Object ID and a type that the ID points to, stored in Rust
+/// memory.
 ///
-/// Each object id in screeps is represented by a Mongo GUID, which,
-/// while not guaranteed, is unlikely to change. This takes advantage of that by
-/// storing a packed representation of 12 bytes.
+/// Use [`JsObjectId`] if a reference stored in JavaScript memory is preferred.
 ///
-/// This object ID is typed, but not strictly. It's completely safe to create an
-/// ObjectId with an incorrect type, and all operations which use the type will
-/// double-check at runtime.
-///
-/// With that said, using this can provide nice type inference, and should have
-/// few disadvantages to the lower-level alternative, [`RawObjectId`].
+/// Each object ID in Screeps: World is represented by an ID of up to 24
+/// hexidemical characters, which cannot change. This implementation takes
+/// advantage of that by storing a packed representation in a `u128`, using 96
+/// bits for the ID and 32 bits for tracking the length of the ID string for
+/// reconstruction in JS.
 ///
 /// # Conversion
 ///
@@ -55,14 +54,19 @@ pub use raw::*;
 /// accuracy, these ids will be sorted by object creation time.
 ///
 /// [`BTreeMap`]: std::collections::BTreeMap
+/// [`JsObjectId`]: crate::js_collections::JsObjectId
 /// [1]: https://docs.mongodb.com/manual/reference/method/ObjectId/
 // Copy, Clone, Debug, PartialEq, Eq, Hash, PartialEq, Eq implemented manually below
 #[derive(Serialize, Deserialize)]
 #[serde(transparent, bound = "")]
 pub struct ObjectId<T> {
     raw: RawObjectId,
+
+    // Needed to consider the `T` as "used" even though we mostly use it as a marker. Because of
+    // auto traits, `PhantomData<fn() -> T>` is used instead: this struct doesn't *hold* a `T`, it
+    // *produces* one.
     #[serde(skip)]
-    phantom: PhantomData<T>,
+    phantom: PhantomData<fn() -> T>,
 }
 
 // traits implemented manually so they don't depend on `T` implementing them.
@@ -158,9 +162,8 @@ impl<T> ObjectId<T> {
         self.raw.to_array_string()
     }
 
-    /// Resolves this object ID into an object.
-    ///
-    /// This is a shortcut for [`game::get_object_by_id_typed(id)`][1]
+    /// Resolves this object ID into an object, verifying that the returned
+    /// object matches the expected type.
     ///
     /// # Errors
     ///
@@ -169,11 +172,9 @@ impl<T> ObjectId<T> {
     ///
     /// Will return `Ok(None)` if the object no longer exists, or is in a room
     /// we don't have vision for.
-    ///
-    /// [1]: crate::game::get_object_by_id_typed
     pub fn try_resolve(self) -> Result<Option<T>, RoomObject>
     where
-        T: Resolvable + JsCast,
+        T: MaybeHasId + JsCast,
     {
         match game::get_object_by_id_erased(&self.raw) {
             Some(v) => v.dyn_into().map(|v| Some(v)),
@@ -190,7 +191,7 @@ impl<T> ObjectId<T> {
     /// don't have vision for.
     pub fn resolve(self) -> Option<T>
     where
-        T: Resolvable,
+        T: MaybeHasId + JsCast,
     {
         game::get_object_by_id_typed(&self)
     }
@@ -260,5 +261,13 @@ impl<T> From<ObjectId<T>> for u128 {
 impl<T> From<u128> for ObjectId<T> {
     fn from(packed: u128) -> Self {
         Self::from_packed(packed)
+    }
+}
+
+impl<T> JsCollectionFromValue for ObjectId<T> {
+    fn from_value(val: JsValue) -> Self {
+        let val: JsString = val.unchecked_into();
+        let val: String = val.into();
+        val.parse().expect("valid id string")
     }
 }

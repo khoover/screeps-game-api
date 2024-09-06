@@ -1,13 +1,11 @@
 //! Game map related functionality.
 //!
 //! [Screeps documentation](https://docs.screeps.com/api/#Game-map)
-use std::convert::TryInto;
-
 use enum_iterator::Sequence;
 use js_sys::{Array, JsString, Object};
 use num_traits::*;
-use serde::Deserialize;
-use wasm_bindgen::{prelude::*, JsCast};
+use serde::{Deserialize, Serialize};
+use wasm_bindgen::prelude::*;
 
 use crate::{
     constants::{Direction, ErrorCode, ExitDirection},
@@ -33,8 +31,8 @@ extern "C" {
     #[wasm_bindgen(js_namespace = ["Game"], js_class = "map", static_method_of = Map, js_name = getRoomLinearDistance)]
     fn get_room_linear_distance(room_1: &JsString, room_2: &JsString, continuous: bool) -> u32;
 
-    #[wasm_bindgen(js_namespace = ["Game"], js_class = "map", static_method_of = Map, js_name = getRoomTerrain)]
-    fn get_room_terrain(room_name: &JsString) -> RoomTerrain;
+    #[wasm_bindgen(js_namespace = ["Game"], js_class = "map", static_method_of = Map, js_name = getRoomTerrain, catch)]
+    fn get_room_terrain(room_name: &JsString) -> Result<RoomTerrain, JsValue>;
 
     #[wasm_bindgen(js_namespace = ["Game"], js_class = "map", static_method_of = Map, js_name = getWorldSize)]
     fn get_world_size() -> u32;
@@ -70,10 +68,10 @@ pub fn get_room_linear_distance(from_room: RoomName, to_room: RoomName, continuo
 /// vision in.
 ///
 /// [Screeps documentation](https://docs.screeps.com/api/#Game.map.getRoomTerrain)
-pub fn get_room_terrain(room_name: RoomName) -> RoomTerrain {
+pub fn get_room_terrain(room_name: RoomName) -> Option<RoomTerrain> {
     let name = room_name.into();
 
-    Map::get_room_terrain(&name)
+    Map::get_room_terrain(&name).ok()
 }
 
 /// Get the size of the world map.
@@ -95,6 +93,7 @@ extern "C" {
     pub fn timestamp(this: &JsRoomStatusResult) -> Option<f64>;
 }
 
+#[derive(Clone, Debug)]
 pub struct RoomStatusResult {
     status: RoomStatus,
     timestamp: Option<f64>,
@@ -110,15 +109,6 @@ impl RoomStatusResult {
     }
 }
 
-impl Default for RoomStatusResult {
-    fn default() -> Self {
-        RoomStatusResult {
-            status: RoomStatus::Normal,
-            timestamp: None,
-        }
-    }
-}
-
 impl From<JsRoomStatusResult> for RoomStatusResult {
     fn from(val: JsRoomStatusResult) -> Self {
         RoomStatusResult {
@@ -129,7 +119,7 @@ impl From<JsRoomStatusResult> for RoomStatusResult {
 }
 
 #[wasm_bindgen]
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Sequence)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Sequence, Deserialize, Serialize)]
 pub enum RoomStatus {
     Normal = "normal",
     Closed = "closed",
@@ -141,13 +131,10 @@ pub enum RoomStatus {
 /// area or currently inaccessible.
 ///
 /// [Screeps documentation](https://docs.screeps.com/api/#Game.map.getRoomStatus)
-pub fn get_room_status(room_name: RoomName) -> RoomStatusResult {
+pub fn get_room_status(room_name: RoomName) -> Option<RoomStatusResult> {
     let name = room_name.into();
 
-    Map::get_room_status(&name)
-        .ok()
-        .map(RoomStatusResult::from)
-        .unwrap_or_default()
+    Map::get_room_status(&name).ok().map(RoomStatusResult::from)
 }
 
 #[wasm_bindgen]
@@ -271,7 +258,7 @@ where
     }
 }
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize)]
 pub struct RouteStep {
     pub exit: ExitDirection,
     pub room: RoomName,

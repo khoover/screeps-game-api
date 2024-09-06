@@ -2,7 +2,7 @@
 //!
 //! [Screeps documentation](https://docs.screeps.com/api/#Game-market)
 use js_sys::{Array, JsString, Object};
-use wasm_bindgen::{prelude::*, JsCast};
+use wasm_bindgen::prelude::*;
 
 use crate::{
     constants::{ErrorCode, MarketResourceType, OrderType, ResourceType},
@@ -83,10 +83,18 @@ pub fn outgoing_transactions() -> Vec<Transaction> {
 }
 
 /// An [`Object`] with your current buy and sell orders on the market, with
-/// order ID [`JsString`] keys and [`MyOrder`] values.
+/// order ID [`String`] keys and [`MyOrder`] values.
 ///
 /// [Screeps documentation](https://docs.screeps.com/api/#Game.market.orders)
 pub fn orders() -> JsHashMap<String, MyOrder> {
+    Market::orders().into()
+}
+
+/// An [`Object`] with your current buy and sell orders on the market, with
+/// order ID [`JsString`] keys and [`MyOrder`] values.
+///
+/// [Screeps documentation](https://docs.screeps.com/api/#Game.market.orders)
+pub fn orders_jsstring() -> JsHashMap<JsString, MyOrder> {
     Market::orders().into()
 }
 
@@ -168,10 +176,9 @@ pub fn get_all_orders(filter: Option<&LodashFilter>) -> Vec<Order> {
 }
 
 /// Get information about the price history on the market for the last 14
-/// days for a given resource as an [`Array`] of [`OrderHistoryRecord`]s, or
-/// for all resources if `None`. Warning: returns an empty [`Object`]
-/// instead of an array if there is no history for the resource, verifying
-/// the type is recommended before use if the market might be empty.
+/// days.
+///
+/// Gets information for a given resource, or for all resources if `None`.
 ///
 /// [Screeps documentation](https://docs.screeps.com/api/#Game.market.getHistory)
 pub fn get_history(resource: Option<ResourceType>) -> Vec<OrderHistoryRecord> {

@@ -1,6 +1,6 @@
 [package]
 name = "screeps-game-api"
-version = "0.16.1"
+version = "0.22.0"
 authors = ["David Ross <daboross@daboross.net>"]
 documentation = "https://docs.rs/screeps-game-api/"
 edition = "2021"
@@ -31,7 +31,7 @@ rustdoc-args = ["--cfg", "docsrs"]
 [dependencies]
 arrayvec = "0.7"
 enum_dispatch = "0.3"
-enum-iterator = "1.4"
+enum-iterator = "2.0"
 js-sys = "0.3"
 num-derive = "0.4"
 num-traits = "0.2"
@@ -39,48 +39,30 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 serde_repr = "0.1"
 serde-wasm-bindgen = "0.6"
-wasm-bindgen = "0.2"
+wasm-bindgen = ">=0.2.93"
 
 [dev-dependencies]
-assert_approx_eq = "1.1"
 bincode = "1.3"
 wasm-bindgen-test = "0.3"
 
 [features]
 ## Specific features to enable conditional API endpoints
 
+# Official MMO server features, not present on other environments
+mmo = []
+
+# Seasonal server, season 1 - enable score container, collector, and resource
+seasonal-season-1 = []
+
+# Seasonal server, season 2 - enable symbol container, decoder, and resources
+seasonal-season-2 = []
+
+# Seasonal server, season 5 - enable thorium resource and reactor structure
+seasonal-season-5 = []
+
 # enable compatibility with the sim environment for positions
 sim = []
-
-# Enable the function call for pixel generation - only present on official MMO servers
-generate-pixel = []
-
-# Enable the interface for inter-shard memory - only present on official MMO servers
-inter-shard-memory = []
-
-# Enable score container, collector, and resource - used in season 1
-score = []
-
-# Enable symbol container, decoder, and resources - used in season 2
-symbols = []
-
-# Enable thorium resource and reactor structure - used in season 5
-thorium = []
 
 # Enable unsafe conversions of return codes with undefined behavior when values
 # aren't in the expected range
 unsafe-return-conversion = []
-
-## Sets of the above features for different server environments
-
-# Official MMO server features, not present on other environments
-mmo = ["generate-pixel", "inter-shard-memory"]
-
-# Seasonal server, season 1
-seasonal-season-1 = ["score"]
-
-# Seasonal server, season 2
-seasonal-season-2 = ["symbols"]
-
-# Seasonal server, season 5
-seasonal-season-5 = ["thorium"]

@@ -1,5 +1,5 @@
 use js_sys::JsString;
-use wasm_bindgen::{prelude::*, JsCast};
+use wasm_bindgen::prelude::*;
 
 use crate::{
     local::{Position, RoomName},
@@ -17,7 +17,7 @@ extern "C" {
     #[derive(Clone, Debug)]
     pub type StructurePortal;
 
-    #[wasm_bindgen(method, getter)]
+    #[wasm_bindgen(method, getter = destination)]
     fn destination_internal(this: &StructurePortal) -> JsValue;
 
     /// The number of ticks until the portal will decay, if it's unstable, or 0

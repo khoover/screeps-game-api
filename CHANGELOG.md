@@ -1,6 +1,208 @@
 Unreleased
 ==========
 
+### Breaking:
+
+- Change return type of `Structure::destroy` from `i8` to `Result<(), ErrorCode>`.
+
+0.22.0 (2024-08-27)
+===================
+
+### Breaking:
+
+- `cargo-screeps` is no longer supported as a deployment method, `wasm-bindgen` as of 0.2.93
+  generates code that needs transpiled; see the starter project's README for migration instructions
+- Change return type of `RoomXY::get_range_to` and input type of `RoomXY::in_range_to` to u8
+
+### Additions:
+
+- Make `RoomName::from_packed` and `RoomName::packed_repr` public
+- Add constants to `season_1` module representing the Season 1 score cycle mechanic
+
+0.21.3 (2024-08-14)
+===================
+
+### Bugfixes:
+
+- Temporarily pin to wasm-bindgen 0.2.92 due to incompatible generated javascript
+
+0.21.2 (2024-08-14)
+===================
+
+### Bugfixes:
+
+- Update for new string enum implementation in wasm-bindgen 0.2.93
+
+### Misc:
+
+- Move crate constant `ROOM_AREA` to extra constants module and make public
+
+0.21.1 (2024-06-28)
+===================
+
+### Additions:
+
+- Add function `Direction::iter` which returns an iterator over all the `Direction` enum values
+- Add function `RoomXY::neighbors` which returns an iterator over all the valid neighbors of
+  a given `RoomXY` position
+- Add static function `LocalCostMatrix::new_with_value` which returns a `LocalCostMatrix` with
+  every position set to a given `u8` value
+- Implement `JsCollectionIntoValue` and `JsCollectionFromValue` for `IntershardResourceType` and
+  `u32` to allow `game::resources()` return value to be used as expected
+- Add static function `RoomXY::new` to allow creating a new `RoomXY` from `RoomCoordinates`
+- Add static function `RoomXY::checked_new` to allow creating a new `RoomXY` from a (u8, u8)
+  pair, while checking the validity of the coordinates provided
+- Add function `RoomXY::towards` which returns a `RoomXY` between two `RoomXY` positions,
+  rounding towards the start position if necessary
+- Add function `RoomXY::between` which returns a `RoomXY` between two `RoomXY` positions,
+  rounding towards the target position if necessary
+- Add function `RoomXY::midpoint_between` which returns the `RoomXY` midpoint between
+  two `RoomXY` positions, rounding towards the target position if necessary
+- Add function `RoomXY::offset` which modifies a `RoomXY` in-place by a (i8, i8) offset
+- Add function `RoomXY::get_direction_to` which returns a `Direction` that is closest to
+  a given `RoomXY` position
+- Add function `RoomXY::get_range_to` which returns the Chebyshev Distance to a given
+  `RoomXY` position
+- Add function `RoomXY::in_range_to` which returns whether the Chebyshev Distance to a given
+  `RoomXY` position is less-than-or-equal-to a given distance
+- Add function `RoomXY::is_near_to` which returns whether a given `RoomXY` position is adjacent
+- Add function `RoomXY::is_equal_to` which returns whether a given `RoomXY` position is
+  the same position
+- Implement the `PartialOrd` and `Ord` traits for `RoomXY`
+- Implement the `Add<(i8, i8)>`, `Add<Direction>`, `Sub<(i8, i8)>`, `Sub<Direction>`,
+  and `Sub<RoomXY>` traits for `RoomXY`
+
+0.21.0 (2024-05-14)
+===================
+
+### Breaking:
+
+- Change return type of `Flag::name` and `StructureSpawn::name` to `String` from `JsString`
+- Change name of `LocalRoomTerrain::get` to `get_xy` for consistency with `RoomTerrain`
+- Change name of `constants::extra::CONSTRUCTION_SITE_STOMP_RATIO` to
+  `CONSTRUCTION_SITE_DROP_RATIO`
+- Remove features `generate-pixel` and `inter-shard-memory`, use the `mmo` feature instead
+- Place `game::cpu::{shard_limits, unlocked, unlocked_time, set_shard_limits, unlock}` functions
+  behind the `mmo` feature
+- Change return type of `game::{construction_sites, structures}` to `JsHashMap<ObjectId<_>, _>`
+  instead of `JsHashMap<RawObjectId, _>`
+
+### Additions:
+
+- Add functions `game::creeps_jsstring`, `game::flags_jsstring`, `game::power_creeps_jsstring`,
+  and `game::spawns_jsstring` to get the object as `JsHashMap<JsString, _>` instead of `String`
+- Add function `game::market::orders_jsstring` to get the object as `JsHashMap<JsString, MyOrder>`
+- Add function `name_jsstring` to `SharedCreepProperties` trait, `Flag`, and `StructureSpawn`
+- Add function `raw_memory::segments_jsstring` to get the object as `JsHashMap<u8, JsString>`
+- Add `RoomTerrain::get_xy` which takes a `RoomXY` instead of a coordinate pair
+- Add `RoomCoordinate::is_room_edge`, `RoomXY::is_room_edge`, and `Position::is_room_edge`
+- Add new extra constant `constants::extra::CONTROLLER_DOWNGRADE_PROGRESS_RATIO`, which is
+  the percentage toward the previous level that a downgrading controller's progress is set to
+- Add new extra constants `constants::extra::{MOVE_COST_PLAIN, MOVE_COST_ROAD, MOVE_COST_SWAMP}`
+- Add constant `screeps::constants::resources::RESOURCES_ALL` (also accessible as 
+  `screeps::RESOURCES_ALL`) that contains every resource type
+- Add function `StoreObject::resource_types` to get the types of resources that a store can hold
+    - This can be used with a `StructureObject` as `StoreObject::try_from(structure_object).map(|store| store.resource_types())`
+      which returns a `Result<&'static [ResourceType], StoreObjectConversionError>`
+- Add missing `StoreObject::Reactor` to the `seasonal-season-5` feature
+- Implement `Serialize` and `Deserialize` for `RoomStatus`
+- Add function `JsHashMap::entries`
+
+### Bugfixes:
+
+- Implement `JsCollectionFromValue` for `Direction`, `ObjectId<_>`
+- Implement `Debug` for `RouteStep`
+- Made the `AttackController` event deserialize correctly
+
+### Misc:
+
+- Change `PhantomData` in `screeps::local::ObjectId` to better model `ObjectId`'s relationship with
+  the wrapped type.
+    - This allows `ObjectId` to be `Send + Sync` regardless of the wrapped type
+- Update `enum-iterator` to 2.0
+
+0.20.1 (2024-01-09)
+===================
+
+### Additions:
+
+- Add `StructureObject::as_repairable` matching related functions for other object traits
+- Add implementations of `TryFrom<AccountPowerCreep>` and `AsRef<AccountPowerCreep>` for
+  `PowerCreep`
+- Add implementation of `From<PowerCreep>` for `AccountPowerCreep`
+- Add `constants::extra::NOTIFY_MAX_LENGTH` with the length of allowed input to `game::notify`
+
+0.20.0 (2024-01-08)
+===================
+
+### Breaking:
+
+- Remove `HasNativeId`, `MaybeHasNativeId`, `HasTypedId`, and `MaybeHasTypedId` traits, adding
+  their functions to the `HasId` and `MaybeHasId` traits
+  - Renamed `native_id`/`try_native_id` to `js_raw_id`/`try_js_raw_id` for consistency with the
+    other trait functions
+- Remove `Resolvable` trait, moving its functionality to `MaybeHasId`
+- Remove `ObjectWithId` and `ObjectWithMaybeId` enums
+- Remove `Option<_>` for style options on `MapVisual`, fixes all visuals failing to render if
+  one without style was used
+- Remove `score`, `symbols`, and `thorium` features, moving all items they enabled to their
+  respective `seasonal-season-1`, `seasonal-season-2`, and `seasonal-season-5` features
+- Add `Repairable` trait, and change target type for `Creep::repair` and `StructureTower::repair`
+  to `?Sized + Repairable` to match ergonomics of similar functions
+
+### Bugfixes:
+
+- Fix `raw_memory::set_public_segments` and `set_default_public_segment` argument conversion
+
+0.19.0 (2023-12-20)
+===================
+
+### Breaking:
+
+- A number of functions on `StructureController` now return `Option<u32>` to account for cases 
+  where they may be undefined: `progress`, `progress_total`, `ticks_to_downgrade`, and
+  `upgrade_blocked`
+
+### Bugfixes:
+
+- An undefined `hits` or `hitsMax` value on an invulnerable wall or certain controllers will no
+  longer cause a panic when building in dev mode
+- Fixed incorrect JavaScript field name on `StructurePortal::destination()` getter
+
+0.18.0 (2023-11-27)
+===================
+
+### Breaking:
+
+- Simplification of cost matrix types and traits:
+  - Remove `SparseCostMatrix`, to be moved to `screeps-game-utils` crate
+  - Remove `LocalCostMatrix::merge_from_dense` / `merge_from_sparse`
+  - Remove `CostMatrixSet::set_multi` and replace `CostMatrixSet::set` with `set_xy`
+  - Add `CostMatrixGet` trait with `get_xy` function
+  - Remove `HasLocalPosition` trait with no implementations
+
+0.17.0 (2023-11-27)
+===================
+
+### Breaking:
+
+- Change `TOWER_OPTIMAL_RANGE` and `TOWER_FALLOFF_RANGE` types to `u8` and `TOWER_FALLOFF` type
+  to `f64`
+- Changed `RoomTerrain::new` and `game::map::get_room_terrain` return type to
+  `Option<RoomTerrain>`, returning `None` when the specified room is outside the server's
+  map
+- Changed `game::map::get_room_status` return type to `Option<RoomStatusResult>`, returning
+  `None` instead of the previous behavior of returning an artificial 'normal' status for rooms
+  outside the server's map
+- Remove `constants::math::control_points_for_gcl` and `power_for_gpl` - moved to new
+  `screeps-game-utils` crate
+
+### Bugfixes:
+
+- Implement `JsCollectionIntoValue` for `Direction`, making the `JsHashMap` returned by
+  `game::map::describe_exits` able to be used
+- Handle object return properly from `RoomTerrain::get_raw_buffer_to_array` when built in dev mode
+
 0.16.1 (2023-10-11)
 ===================
 

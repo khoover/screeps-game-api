@@ -1,5 +1,5 @@
 use js_sys::{Array, JsString, Object};
-use wasm_bindgen::{prelude::*, JsCast};
+use wasm_bindgen::prelude::*;
 
 use crate::{
     constants::{Direction, ErrorCode, Part},
@@ -28,11 +28,17 @@ extern "C" {
     #[wasm_bindgen(method, setter)]
     pub fn set_memory(this: &StructureSpawn, val: &JsValue);
 
-    /// The spawn's name as an owned reference to a [`JsString`].
+    /// The spawn's name as a [`String`].
     ///
     /// [Screeps documentation](https://docs.screeps.com/api/#StructureSpawn.name)
     #[wasm_bindgen(method, getter)]
-    pub fn name(this: &StructureSpawn) -> JsString;
+    pub fn name(this: &StructureSpawn) -> String;
+
+    /// The spawn's name as a [`JsString`].
+    ///
+    /// [Screeps documentation](https://docs.screeps.com/api/#StructureSpawn.name)
+    #[wasm_bindgen(method, getter = name)]
+    pub fn name_jsstring(this: &StructureSpawn) -> JsString;
 
     /// Information about the spawning creep, if one is currently being spawned.
     ///
@@ -151,6 +157,12 @@ impl HasStore for StructureSpawn {
     }
 }
 
+impl Attackable for StructureSpawn {}
+impl Dismantleable for StructureSpawn {}
+impl Repairable for StructureSpawn {}
+impl Transferable for StructureSpawn {}
+impl Withdrawable for StructureSpawn {}
+
 #[derive(Default)]
 pub struct SpawnOptions {
     memory: Option<JsValue>,
@@ -242,6 +254,8 @@ extern "C" {
     /// [`StructureSpawn`] or a [`StructureInvaderCore`].
     ///
     /// [Screeps documentation](https://docs.screeps.com/api/#StructureSpawn.Spawning.spawn)
+    ///
+    /// [`StructureInvaderCore`]: crate::objects::StructureInvaderCore
     #[wasm_bindgen(method, getter)]
     pub fn spawn(this: &Spawning) -> Structure;
 

@@ -1,4 +1,4 @@
-use js_sys::{Date, JsString};
+use js_sys::Date;
 use wasm_bindgen::prelude::*;
 
 use crate::{
@@ -29,18 +29,19 @@ extern "C" {
     #[wasm_bindgen(method, getter)]
     pub fn level(this: &StructureController) -> u8;
 
-    /// The progress toward upgrading the controller to the next level
+    /// The progress toward upgrading the controller to the next level, or
+    /// `None` if the controller is unowned.
     ///
     /// [Screeps documentation](https://docs.screeps.com/api/#StructureController.progress)
     #[wasm_bindgen(method, getter)]
-    pub fn progress(this: &StructureController) -> u32;
+    pub fn progress(this: &StructureController) -> Option<u32>;
 
     /// The total [`StructureController::progress`] needed to upgrade the
-    /// controller to the next level.
+    /// controller to the next level, or `None` if the controller is unowned.
     ///
     /// [Screeps documentation](https://docs.screeps.com/api/#StructureController.progressTotal)
     #[wasm_bindgen(method, getter = progressTotal)]
-    pub fn progress_total(this: &StructureController) -> u32;
+    pub fn progress_total(this: &StructureController) -> Option<u32>;
 
     /// Information about the reservation of this controller, if it is currently
     /// reserved.
@@ -57,7 +58,7 @@ extern "C" {
     pub fn safe_mode(this: &StructureController) -> Option<u32>;
 
     /// The number of of available safe mode activations, which can be increased
-    /// by using [`Creep::generate_safe_mode`]
+    /// by using [`Creep::generate_safe_mode`].
     ///
     /// [Screeps documentation](https://docs.screeps.com/api/#StructureController.safeModeAvailable)
     ///
@@ -81,11 +82,12 @@ extern "C" {
     pub fn sign(this: &StructureController) -> Option<Sign>;
 
     /// The number of ticks until the level of the controller will be
-    /// decremented due to a lack of [`Creep::upgrade_controller`] activity.
+    /// decremented due to a lack of [`Creep::upgrade_controller`] activity, or
+    /// `None` if the controller is unowned.
     ///
     /// [Screeps documentation](https://docs.screeps.com/api/#StructureController.ticksToDowngrade)
     #[wasm_bindgen(method, getter = ticksToDowngrade)]
-    pub fn ticks_to_downgrade(this: &StructureController) -> u32;
+    pub fn ticks_to_downgrade(this: &StructureController) -> Option<u32>;
 
     /// The number of ticks until the controller can be upgraded, or have safe
     /// mode activated, due to [`Creep::attack_controller`].
@@ -94,27 +96,27 @@ extern "C" {
     ///
     /// [`Creep::attack_controller`]: crate::objects::Creep::attack_controller
     #[wasm_bindgen(method, getter = upgradeBlocked)]
-    pub fn upgrade_blocked(this: &StructureController) -> u32;
+    pub fn upgrade_blocked(this: &StructureController) -> Option<u32>;
 
-    /// Activate safe mode for the room, preventing hostile creep actions in the
-    /// room for 20,000 ticks
-    ///
-    /// [Screeps documentation](https://docs.screeps.com/api/#StructureController.activateSafeMode)
     #[wasm_bindgen(method, js_name = activateSafeMode)]
     fn activate_safe_mode_internal(this: &StructureController) -> i8;
 
-    /// Relinquish ownership of the controller and its room.
-    ///
-    /// [Screeps documentation](https://docs.screeps.com/api/#StructureController.unclaim)
     #[wasm_bindgen(method, js_name = unclaim)]
     fn unclaim_internal(this: &StructureController) -> i8;
 }
 
 impl StructureController {
+    /// Activate safe mode for the room, preventing hostile creep actions in the
+    /// room for 20,000 ticks
+    ///
+    /// [Screeps documentation](https://docs.screeps.com/api/#StructureController.activateSafeMode)
     pub fn activate_safe_mode(&self) -> Result<(), ErrorCode> {
         ErrorCode::result_from_i8(self.activate_safe_mode_internal())
     }
 
+    /// Relinquish ownership of the controller and its room.
+    ///
+    /// [Screeps documentation](https://docs.screeps.com/api/#StructureController.unclaim)
     pub fn unclaim(&self) -> Result<(), ErrorCode> {
         ErrorCode::result_from_i8(self.unclaim_internal())
     }
@@ -128,19 +130,13 @@ extern "C" {
     #[wasm_bindgen]
     pub type Reservation;
 
-    #[wasm_bindgen(method, getter = username)]
-    fn username_internal(this: &Reservation) -> JsString;
+    /// The name of the player that has reserved this controller.
+    #[wasm_bindgen(method, getter)]
+    pub fn username(this: &Reservation) -> String;
 
     /// The number of ticks until the reservation expires.
     #[wasm_bindgen(method, getter = ticksToEnd)]
     pub fn ticks_to_end(this: &Reservation) -> u32;
-}
-
-impl Reservation {
-    /// The name of the player that has reserved this controller.
-    pub fn username(&self) -> String {
-        Self::username_internal(self).into()
-    }
 }
 
 #[wasm_bindgen]
@@ -151,11 +147,13 @@ extern "C" {
     #[wasm_bindgen]
     pub type Sign;
 
-    #[wasm_bindgen(method, getter = username)]
-    fn username_internal(this: &Sign) -> JsString;
+    /// The name of the player that has reserved this controller.
+    #[wasm_bindgen(method, getter)]
+    pub fn username(this: &Sign) -> String;
 
-    #[wasm_bindgen(method, getter = text)]
-    fn text_internal(this: &Sign) -> JsString;
+    /// The text of the sign on this controller.
+    #[wasm_bindgen(method, getter)]
+    pub fn text(this: &Sign) -> String;
 
     /// The tick when this sign was written.
     #[wasm_bindgen(method, getter)]
@@ -164,16 +162,4 @@ extern "C" {
     /// The timestamp of when this sign was written.
     #[wasm_bindgen(method, getter)]
     pub fn datetime(this: &Sign) -> Date;
-}
-
-impl Sign {
-    /// The name of the player that has reserved this controller.
-    pub fn username(&self) -> String {
-        Self::username_internal(self).into()
-    }
-
-    /// The text of the sign on this controller.
-    pub fn text(&self) -> String {
-        Self::text_internal(self).into()
-    }
 }
